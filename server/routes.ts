@@ -8,7 +8,7 @@ import { authService } from "./auth";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-import { mapStatus, mapTruckStatus, mapPresence, mapCompatibility, mapAppStatus, mapMaterial, mapMaterialStatus, mapTestStatus } from "./utils/excel-mapper.js";
+import { mapStatus, mapTruckStatus, mapPresence, mapCompatibility, mapAppStatus, mapMaterial, mapMaterialStatus, mapTestStatus } from "./utils/excel-mapper";
 
 export function registerRoutes(app: Express) {
   // ===== ROUTES D'AUTHENTIFICATION =====
@@ -549,7 +549,4 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ message: "Échec d'importation des camions" });
     }
   });
-
-  const httpServer = createServer(app);
-  return httpServer;
 }

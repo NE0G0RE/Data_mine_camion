@@ -59,8 +59,9 @@ export class MySQLStorage implements IStorage {
 
   async createRole(insertRole: InsertRole): Promise<Role> {
     const db = await getDb();
-    await db.insert(roles).values(insertRole);
-    const createdRole = await this.getRole(insertRole.nom);
+    const result = await db.insert(roles).values(insertRole);
+    // Pour MySQL, nous devons récupérer le rôle créé différemment
+    const createdRole = await this.getRole(insertRole.id);
     if (!createdRole) {
       throw new Error("Erreur lors de la création du rôle");
     }
@@ -138,8 +139,9 @@ export class MySQLStorage implements IStorage {
 
   async createPermission(insertPermission: InsertPermission): Promise<PermissionUtilisateur> {
     const db = await getDb();
-    await db.insert(permissionsUtilisateur).values(insertPermission);
-    const createdPermission = await this.getPermission(insertPermission.utilisateurId);
+    const result = await db.insert(permissionsUtilisateur).values(insertPermission);
+    // Pour MySQL, nous devons récupérer la permission créée différemment
+    const createdPermission = await this.getPermission(insertPermission.id);
     if (!createdPermission) {
       throw new Error("Erreur lors de la création de la permission");
     }
