@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, Edit, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +51,7 @@ const getStatusBadge = (status: string | null | undefined, type: 'etat' | 'truck
 };
 
 export default function TruckTable({ trucks, isLoading, onEdit, onAdd }: TruckTableProps) {
+  const navigate = useNavigate();
   const [selectedTrucks, setSelectedTrucks] = useState<Set<string>>(new Set());
 
   const handleSelectAll = (checked: boolean) => {
@@ -170,8 +172,9 @@ export default function TruckTable({ trucks, isLoading, onEdit, onAdd }: TruckTa
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onEdit(truck)}
+                        onClick={() => navigate(`/truck/${truck.id}`)}
                         className="text-primary hover:text-blue-700"
+                        title="Voir les détails"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -180,6 +183,7 @@ export default function TruckTable({ trucks, isLoading, onEdit, onAdd }: TruckTa
                         size="sm"
                         onClick={() => onEdit(truck)}
                         className="text-gray-400 hover:text-gray-600"
+                        title="Modifier"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -187,6 +191,7 @@ export default function TruckTable({ trucks, isLoading, onEdit, onAdd }: TruckTa
                         variant="ghost"
                         size="sm"
                         className="text-red-400 hover:text-red-600"
+                        title="Supprimer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

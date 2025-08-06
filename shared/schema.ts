@@ -8,7 +8,7 @@ export const trucks = pgTable("trucks", {
   numero: text("numero").notNull().unique(),
   modele: text("modele").notNull(),
   
-  // État section
+  // Section État
   numeroDA: text("numero_da"),
   dateDA: date("date_da"),
   daValide: text("da_valide"), // "oui", "non", "na"
@@ -17,7 +17,7 @@ export const trucks = pgTable("trucks", {
   dateReception: date("date_reception"),
   validationReception: text("validation_reception"), // "oui", "non", "na"
   
-  // Truck4U section
+  // Section Truck4U
   installePar: text("installe_par"),
   dateInstallation: date("date_installation"),
   parametrageRealise: text("parametrage_realise"), // "oui", "non", "partiel"
@@ -26,7 +26,7 @@ export const trucks = pgTable("trucks", {
   telechargementMemoireMasse: text("telechargement_memoire_masse"),
   numeroTruck4U: text("numero_truck4u"),
   
-  // Tablette section
+  // Section Tablette
   presenceTablette: text("presence_tablette"), // "oui", "non"
   typeTablette: text("type_tablette"),
   imei: text("imei"),
@@ -36,14 +36,14 @@ export const trucks = pgTable("trucks", {
   applicationsSpecifiques: text("applications_specifiques"),
   raisonsNonInstalle: text("raisons_non_installe"),
   
-  // Matériel section
+  // Section Matériel
   cameraCabineTelematics: text("camera_cabine_telematics"), // "oui", "non", "pas_besoin"
   dashcam: text("dashcam"), // "oui", "non", "pas_besoin"
   numeroPDA: text("numero_pda"),
   materielRequis: text("materiel_requis"), // "complet", "partiel", "manquant"
   testsOK: text("tests_ok"), // "oui", "non", "en_cours"
   
-  // Action fields
+  // Champs d'action
   champAction: text("champ_action"),
   observations: text("observations"),
 });

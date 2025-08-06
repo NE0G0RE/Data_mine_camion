@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import TruckTable from "@/components/truck-table";
 import TruckModal from "@/components/simple-truck-modal";
 import { useToast } from "@/hooks/use-toast";
@@ -29,9 +31,9 @@ export default function Dashboard() {
       truck.modele?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       truck.imei?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       truck.numeroTruck4U?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = !statusFilter || statusFilter === "all";
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -112,14 +114,70 @@ export default function Dashboard() {
     input.click();
   };
 
+  const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
+  const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+  const [sheetName, setSheetName] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleGoogleSheetImport = () => {
+    setIsGoogleSheetModalOpen(true);
+  };
+
+  const handleGoogleSheetSubmit = async () => {
+    if (!googleSheetUrl.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir l'URL du Google Sheet.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const response = await fetch('/api/trucks/import-google-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spreadsheetUrl: googleSheetUrl,
+          sheetName: sheetName || 0,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Import réussi",
+          description: result.message,
+        });
+        refetch();
+        setIsGoogleSheetModalOpen(false);
+        setGoogleSheetUrl("");
+        setSheetName("");
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur d'import",
+        description: error.message || "Impossible d'importer depuis Google Sheets.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-40">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-primary">DataMineAI</h1>
-            <span className="text-sm text-gray-500 hidden md:inline">Suivi Informatique Camions</span>
+            <h1 className="text-2xl font-bold text-primary">Suivi Informatique Camions</h1>
           </div>
           <div className="flex items-center space-x-4">
             <Button onClick={handleExport} className="bg-primary hover:bg-blue-700">
@@ -128,7 +186,11 @@ export default function Dashboard() {
             </Button>
             <Button onClick={handleImport} className="bg-green-600 hover:bg-green-700">
               <Upload className="w-4 h-4 mr-2" />
-              Importer
+              Importer Excel
+            </Button>
+            <Button onClick={handleGoogleSheetImport} variant="outline">
+              <Upload className="mr-2 h-4 w-4" />
+              Importer Google Sheet
             </Button>
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
               <User className="w-4 h-4 text-gray-600" />
@@ -274,6 +336,52 @@ export default function Dashboard() {
         onClose={handleModalClose}
         onSave={handleModalSave}
       />
+
+      {/* Google Sheets Import Modal */}
+      <Dialog open={isGoogleSheetModalOpen} onOpenChange={setIsGoogleSheetModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Importer depuis Google Sheets</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="googleSheetUrl">URL du Google Sheet</Label>
+              <Input
+                id="googleSheetUrl"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={googleSheetUrl}
+                onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                disabled={isImporting}
+              />
+              <p className="text-xs text-gray-500">
+                Le Google Sheet doit être accessible publiquement (partagé en lecture)
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sheetName">Nom de la feuille (optionnel)</Label>
+              <Input
+                id="sheetName"
+                placeholder="Sheet1 (par défaut: première feuille)"
+                value={sheetName}
+                onChange={(e) => setSheetName(e.target.value)}
+                disabled={isImporting}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsGoogleSheetModalOpen(false)}
+              disabled={isImporting}
+            >
+              Annuler
+            </Button>
+            <Button onClick={handleGoogleSheetSubmit} disabled={isImporting}>
+              {isImporting ? "Import en cours..." : "Importer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

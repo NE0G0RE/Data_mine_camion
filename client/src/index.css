@@ -80,4 +80,17 @@
   .status-pending {
     @apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300;
   }
+
+  /* Styles pour vue détaillée */
+  .truck-detail-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+  }
+
+  .detail-section {
+    @apply bg-white rounded-lg border border-gray-200 p-6 space-y-4;
+  }
+
+  .detail-section h3 {
+    @apply text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2;
+  }
 }
