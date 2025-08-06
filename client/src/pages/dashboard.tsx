@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import TruckTable from "@/components/truck-table";
 import TruckModal from "@/components/simple-truck-modal";
+import { Navbar } from "@/components/navbar";
 import { useToast } from "@/hooks/use-toast";
 import type { Truck } from "@shared/schema";
 import type { TruckStats } from "@/lib/types";
@@ -99,14 +100,18 @@ export default function Dashboard() {
             title: "Import réussi",
             description: result.message,
           });
-          refetch(); // Refresh the truck list
+          refetch();
         } else {
-          throw new Error(result.message);
+          toast({
+            title: "Erreur d'import",
+            description: result.message || "Une erreur s'est produite lors de l'import.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         toast({
           title: "Erreur d'import",
-          description: "Impossible d'importer le fichier Excel.",
+          description: "Une erreur s'est produite lors de l'import.",
           variant: "destructive",
         });
       }
@@ -173,59 +178,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-40">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-primary">Suivi Informatique Camions</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button onClick={handleExport} className="bg-primary hover:bg-blue-700">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter
-            </Button>
-            <Button onClick={handleImport} className="bg-green-600 hover:bg-green-700">
-              <Upload className="w-4 h-4 mr-2" />
-              Importer Excel
-            </Button>
-            <Button onClick={handleGoogleSheetImport} variant="outline">
-              <Upload className="mr-2 h-4 w-4" />
-              Importer Google Sheet
-            </Button>
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-gray-600" />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex pt-16">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm h-screen sticky top-16 border-r border-gray-200">
-          <nav className="p-4">
-            <div className="space-y-2">
-              <Button className="w-full justify-start bg-primary text-white">
-                <TruckIcon className="w-4 h-4 mr-3" />
-                Vue d'ensemble
-              </Button>
-            </div>
-
-            <div className="mt-8 pt-4 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Actions</h3>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={handleAddTruck}
-              >
-                <Plus className="w-4 h-4 mr-3" />
-                Nouveau camion
-              </Button>
-            </div>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Search and Filter */}
           <Card className="mb-6">
             <CardContent className="p-4">
@@ -326,7 +280,7 @@ export default function Dashboard() {
             onEdit={handleEditTruck}
             onAdd={handleAddTruck}
           />
-        </main>
+        </div>
       </div>
 
       {/* Modal */}
