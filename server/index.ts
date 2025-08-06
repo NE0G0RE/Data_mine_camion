@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import { config } from "./config/index.js";
 import { registerRoutes } from "./routes.js";
 import { registerAuthRoutes } from "./routes/auth.js";
@@ -22,7 +23,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+// Routes API
 registerAuthRoutes(app);
 registerRoutes(app);
 
@@ -31,15 +32,27 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Serve static files in production
+if (config.nodeEnv === "production") {
+  app.use(express.static(path.join(process.cwd(), "dist/client")));
+  
+  // Serve index.html for all non-API routes
+  app.get("*", (req, res) => {
+    if (!req.path.startsWith("/api")) {
+      res.sendFile(path.join(process.cwd(), "dist/client/index.html"));
+    }
+  });
+}
+
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Erreur serveur:", err);
   res.status(500).json({ message: "Erreur interne du serveur" });
 });
 
-// 404 handler
-app.use("*", (req, res) => {
-  res.status(404).json({ message: "Route non trouvée" });
+// 404 handler for API routes
+app.use("/api/*", (req, res) => {
+  res.status(404).json({ message: "Route API non trouvée" });
 });
 
 const server = app.listen(config.port, () => {
