@@ -22,11 +22,11 @@ CREATE DATABASE data_mine_camion;
 ### 4. Configuration environnement
 ```bash
 # Créer le fichier .env
-echo "DATABASE_URL=mysql://root@localhost:3306/data_mine_camion" > .env
-echo "PORT=3000" >> .env
-echo "NODE_ENV=development" >> .env
-echo "JWT_SECRET=votre-secret-jwt-tres-securise" >> .env
-echo "SESSION_SECRET=votre-secret-session" >> .env
+echo 'DATABASE_URL="mysql://root@localhost:3306/data_mine_camion"' > .env
+echo 'PORT=3001' >> .env
+echo 'NODE_ENV=development' >> .env
+echo 'JWT_SECRET="votre-secret-jwt-tres-securise"' >> .env
+echo 'SESSION_SECRET="votre-secret-session"' >> .env
 ```
 
 ### 5. Initialiser la base de données
@@ -45,7 +45,7 @@ npm run dev
 ```
 
 ### 8. Accéder à l'application
-- URL: http://localhost:3000
+- URL: http://localhost:3001
 - Email: admin@datamine.com
 - Mot de passe: Admin123!
 
@@ -53,17 +53,17 @@ npm run dev
 
 ### Variables d'environnement complètes
 ```env
-DATABASE_URL=mysql://utilisateur:motdepasse@localhost:3306/data_mine_camion
-PORT=3000
+DATABASE_URL="mysql://utilisateur:motdepasse@localhost:3306/data_mine_camion"
+PORT=3001
 NODE_ENV=development
-JWT_SECRET=votre-secret-jwt-tres-securise
-SESSION_SECRET=votre-secret-session
+JWT_SECRET="votre-secret-jwt-tres-securise"
+SESSION_SECRET="votre-secret-session"
 ```
 
 ### Ports alternatifs
 ```bash
-# Si le port 3000 est occupé
-echo "PORT=3001" >> .env
+# Si le port 3001 est occupé
+echo 'PORT=3002' >> .env
 ```
 
 ### Base de données avec mot de passe
@@ -83,7 +83,7 @@ mysql -u root -p
 ### Erreur de port
 ```bash
 # Changer le port
-echo "PORT=3001" > .env
+echo 'PORT=3002' > .env
 npm run dev
 ```
 
@@ -99,8 +99,11 @@ npm run db:push
 ### Erreur de dépendances
 ```bash
 # Réinstaller les dépendances
-rm -rf node_modules package-lock.json
+npm run clean
 npm install
+
+# Ou installation propre
+npm run install:clean
 ```
 
 ## 📋 Checklist d'Installation
@@ -114,7 +117,7 @@ npm install
 - [ ] `npm run db:push` exécuté
 - [ ] `npm run setup:admin` exécuté
 - [ ] `npm run dev` lancé
-- [ ] Application accessible sur http://localhost:3000
+- [ ] Application accessible sur http://localhost:3001
 - [ ] Connexion admin réussie
 
 ## 🎯 Prochaines Étapes

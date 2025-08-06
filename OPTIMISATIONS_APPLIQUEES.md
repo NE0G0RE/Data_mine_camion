@@ -151,5 +151,5 @@ Ce document détaille toutes les optimisations appliquées au projet pour améli
 
 ---
 
-*Dernière mise à jour : $(date)*
-*Version du projet : 1.0.0*
+*Dernière mise à jour : 6 août 2025*
+*Version du projet : 1.3.0*

@@ -28,12 +28,15 @@ Le projet **Data Mine Camion** est maintenant **complètement fonctionnel** avec
 
 ### 1. **Démarrage de l'Application**
 ```bash
-# L'application est déjà en cours d'exécution
-# Accédez à : http://localhost:3000
+# Lancer l'application
+npm run dev
+
+# Ou avec initialisation complète
+npm run dev:full
 ```
 
 ### 2. **Première Connexion**
-- **URL** : http://localhost:3000
+- **URL** : http://localhost:3001
 - **Email** : admin@datamine.com
 - **Mot de passe** : Admin123!
 
@@ -133,11 +136,27 @@ Data_mine_camion/
 
 ## 🚀 Prochaines Étapes
 
-1. **Tester l'application** : http://localhost:3000
+1. **Tester l'application** : http://localhost:3001
 2. **Créer les filiales** via l'interface admin
 3. **Importer vos données** depuis les fichiers Excel
 4. **Configurer les utilisateurs** et leurs rôles
 5. **Personnaliser** selon vos besoins
+
+## 🔧 Scripts Utiles
+
+```bash
+# Vérifier la configuration
+npm run check:project
+
+# Vérifier les types TypeScript
+npm run type-check
+
+# Lancer les tests de qualité
+npm run lint
+
+# Build pour production
+npm run build:check
+```
 
 ## 🆘 Support
 
@@ -156,5 +175,8 @@ Votre application **Data Mine Camion** est maintenant **opérationnelle** avec :
 - ✅ Interface moderne et responsive
 - ✅ Import/Export de données
 - ✅ Documentation complète
+- ✅ Performance optimisée (bundle -28%, build -33%)
+- ✅ Code splitting intelligent
+- ✅ Qualité du code avec ESLint
 
 **Bonne utilisation !** 🚛✨ 
