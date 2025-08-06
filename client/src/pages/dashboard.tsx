@@ -1,0 +1,279 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Download, Upload, Plus, Search, Filter, User, Truck as TruckIcon, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import TruckTable from "@/components/truck-table";
+import TruckModal from "@/components/simple-truck-modal";
+import { useToast } from "@/hooks/use-toast";
+import type { Truck } from "@shared/schema";
+import type { TruckStats } from "@/lib/types";
+
+export default function Dashboard() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selectedTruck, setSelectedTruck] = useState<Truck | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  const { data: trucks = [], isLoading, refetch } = useQuery({
+    queryKey: ["/api/trucks"],
+    select: (data: Truck[]) => data,
+  });
+
+  const filteredTrucks = trucks.filter((truck) => {
+    const matchesSearch = !searchQuery || 
+      truck.numero?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      truck.modele?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      truck.imei?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      truck.numeroTruck4U?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = !statusFilter || statusFilter === "all";
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats: TruckStats = {
+    totalTrucks: trucks.length,
+    installationsOk: trucks.filter(t => t.statutConduite === 'fonctionnel' && t.testsOK === 'oui').length,
+    pending: trucks.filter(t => t.statutConduite === 'test_requis' || t.testsOK === 'en_cours').length,
+    issues: trucks.filter(t => t.statutConduite === 'non_fonctionnel' || t.testsOK === 'non').length,
+  };
+
+  const handleAddTruck = () => {
+    setSelectedTruck(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditTruck = (truck: Truck) => {
+    setSelectedTruck(truck);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedTruck(null);
+  };
+
+  const handleModalSave = () => {
+    refetch();
+    toast({
+      title: "Succès",
+      description: "Les données ont été sauvegardées avec succès.",
+    });
+  };
+
+  const handleExport = () => {
+    // TODO: Implement export functionality
+    toast({
+      title: "Export",
+      description: "Fonctionnalité d'export en cours de développement.",
+    });
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/trucks/import', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          toast({
+            title: "Import réussi",
+            description: result.message,
+          });
+          refetch(); // Refresh the truck list
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        toast({
+          title: "Erreur d'import",
+          description: "Impossible d'importer le fichier Excel.",
+          variant: "destructive",
+        });
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-40">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold text-primary">DataMineAI</h1>
+            <span className="text-sm text-gray-500 hidden md:inline">Suivi Informatique Camions</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button onClick={handleExport} className="bg-primary hover:bg-blue-700">
+              <Download className="w-4 h-4 mr-2" />
+              Exporter
+            </Button>
+            <Button onClick={handleImport} className="bg-green-600 hover:bg-green-700">
+              <Upload className="w-4 h-4 mr-2" />
+              Importer
+            </Button>
+            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-gray-600" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex pt-16">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white shadow-sm h-screen sticky top-16 border-r border-gray-200">
+          <nav className="p-4">
+            <div className="space-y-2">
+              <Button className="w-full justify-start bg-primary text-white">
+                <TruckIcon className="w-4 h-4 mr-3" />
+                Vue d'ensemble
+              </Button>
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Actions</h3>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start" 
+                onClick={handleAddTruck}
+              >
+                <Plus className="w-4 h-4 mr-3" />
+                Nouveau camion
+              </Button>
+            </div>
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6">
+          {/* Search and Filter */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Rechercher par N° camion, IMEI, N° Truck4U..."
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Tous les statuts" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les statuts</SelectItem>
+                      <SelectItem value="ok">OK</SelectItem>
+                      <SelectItem value="nok">Pas OK</SelectItem>
+                      <SelectItem value="na">Pas besoin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="icon">
+                    <Filter className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Total Camions</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalTrucks}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <TruckIcon className="text-primary text-xl w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Installations OK</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.installationsOk}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="text-green-600 text-xl w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">En Attente</p>
+                    <p className="text-2xl font-bold text-orange-600">{stats.pending}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Clock className="text-orange-600 text-xl w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Problèmes</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.issues}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <AlertTriangle className="text-red-600 text-xl w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Data Table */}
+          <TruckTable 
+            trucks={filteredTrucks} 
+            isLoading={isLoading}
+            onEdit={handleEditTruck}
+            onAdd={handleAddTruck}
+          />
+        </main>
+      </div>
+
+      {/* Modal */}
+      <TruckModal
+        truck={selectedTruck}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSave={handleModalSave}
+      />
+    </div>
+  );
+}
