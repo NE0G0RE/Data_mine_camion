@@ -59,13 +59,13 @@ export class MySQLStorage implements IStorage {
 
   async createRole(insertRole: InsertRole): Promise<Role> {
     const db = await getDb();
-    const result = await db.insert(roles).values(insertRole);
-    // Pour MySQL, nous devons récupérer le rôle créé différemment
-    const createdRole = await this.getRole(insertRole.id);
-    if (!createdRole) {
+    await db.insert(roles).values(insertRole);
+    // Récupérer le rôle créé par son nom (unique)
+    const createdRole = await db.select().from(roles).where(eq(roles.nom, insertRole.nom)).limit(1);
+    if (!createdRole[0]) {
       throw new Error("Erreur lors de la création du rôle");
     }
-    return createdRole;
+    return createdRole[0];
   }
 
   async updateRole(id: string, updateData: Partial<InsertRole>): Promise<Role | undefined> {
@@ -139,13 +139,20 @@ export class MySQLStorage implements IStorage {
 
   async createPermission(insertPermission: InsertPermission): Promise<PermissionUtilisateur> {
     const db = await getDb();
-    const result = await db.insert(permissionsUtilisateur).values(insertPermission);
-    // Pour MySQL, nous devons récupérer la permission créée différemment
-    const createdPermission = await this.getPermission(insertPermission.id);
-    if (!createdPermission) {
+    await db.insert(permissionsUtilisateur).values(insertPermission);
+    // Récupérer la permission créée par ses critères uniques
+    const createdPermission = await db.select().from(permissionsUtilisateur)
+      .where(
+        and(
+          eq(permissionsUtilisateur.utilisateurId, insertPermission.utilisateurId),
+          eq(permissionsUtilisateur.roleId, insertPermission.roleId),
+          eq(permissionsUtilisateur.filialeId, insertPermission.filialeId || '')
+        )
+      ).limit(1);
+    if (!createdPermission[0]) {
       throw new Error("Erreur lors de la création de la permission");
     }
-    return createdPermission;
+    return createdPermission[0];
   }
 
   async updatePermission(id: string, updateData: Partial<InsertPermission>): Promise<PermissionUtilisateur | undefined> {
