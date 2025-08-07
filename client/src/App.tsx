@@ -1,10 +1,10 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import Dashboard from "@/pages/dashboard";
-import TruckDetail from "@/pages/truck-detail";
-import NotFound from "@/pages/not-found";
+import { Toaster } from "./components/ui/toaster";
+import Dashboard from "./pages/dashboard";
+import TruckDetail from "./pages/truck-detail";
+import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {

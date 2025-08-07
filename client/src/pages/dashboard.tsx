@@ -1,29 +1,34 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Upload, Plus, Search, Filter, User, Truck as TruckIcon, CheckCircle, Clock, AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import TruckTable from "@/components/truck-table";
-import TruckModal from "@/components/simple-truck-modal";
-import { useToast } from "@/hooks/use-toast";
-import type { Truck } from "@shared/schema";
-import type { TruckStats } from "@/lib/types";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { Label } from "../components/ui/label";
+import TruckTable from "../components/truck-table";
+import TruckModal from "../components/simple-truck-modal";
+import { useToast } from "../hooks/use-toast";
+import type { Truck } from "../../shared/schema";
+import type { TruckStats } from "../lib/types";
 
 export default function Dashboard() {
+  console.log("Dashboard component rendering");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedTruck, setSelectedTruck] = useState<Truck | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+  
+  console.log("States initialized");
 
-  const { data: trucks = [], isLoading, refetch } = useQuery({
+  const { data: trucks = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/trucks"],
     select: (data: Truck[]) => data,
   });
+
+  console.log("Query state:", { isLoading, error, trucksCount: trucks.length });
 
   const filteredTrucks = trucks.filter((truck) => {
     const matchesSearch = !searchQuery || 
@@ -161,9 +166,10 @@ export default function Dashboard() {
         throw new Error(result.message);
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Impossible d'importer depuis Google Sheets.";
       toast({
         title: "Erreur d'import",
-        description: error.message || "Impossible d'importer depuis Google Sheets.",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {

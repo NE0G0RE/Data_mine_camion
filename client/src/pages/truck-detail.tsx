@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import TruckDetailView from "@/components/truck-detail-view";
-import TruckModal from "@/components/simple-truck-modal";
-import { useToast } from "@/hooks/use-toast";
-import type { Truck } from "@shared/schema";
+import TruckDetailView from "../components/truck-detail-view";
+import TruckModal from "../components/simple-truck-modal";
+import { useToast } from "../hooks/use-toast";
+import type { Truck } from "../../../shared/schema";
 
 export default function TruckDetail() {
   const { id } = useParams<{ id: string }>();

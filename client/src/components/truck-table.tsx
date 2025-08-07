@@ -1,18 +1,31 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Edit, Trash2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
+import { Badge } from "./ui/badge";
+import { Checkbox } from "./ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import type { Truck } from "@shared/schema";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface TruckTableProps {
   trucks: Truck[];
   isLoading: boolean;
   onEdit: (truck: Truck) => void;
   onAdd: () => void;
+  onDelete?: (truck: Truck) => void;
+  onView?: (truck: Truck) => void;
+}
+
+interface DeleteDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  truckNumber: string;
 }
 
 const getStatusBadge = (status: string | null | undefined, type: 'etat' | 'truck4u' | 'tablette' | 'materiel') => {
