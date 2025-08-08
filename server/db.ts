@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, '../.env') });
+
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { trucks, filiales, roles, utilisateurs, permissionsUtilisateur } from "../shared/schema";

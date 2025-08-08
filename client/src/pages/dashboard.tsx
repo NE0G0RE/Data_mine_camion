@@ -1,6 +1,7 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Upload, Plus, Search, Filter, User, Truck as TruckIcon, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Download, Upload, Plus, Search, Filter, Truck as TruckIcon, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -8,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import TruckTable from "../components/truck-table";
-import TruckModal from "../components/simple-truck-modal";
+import UserProfileModalSimple from '../components/user-profile-modal-simple';
+import NewExcelImportModal from '../components/new-excel-import-modal';
 import { useToast } from "../hooks/use-toast";
 import type { Truck } from "../../shared/schema";
 import type { TruckStats } from "../lib/types";
@@ -19,12 +21,21 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedTruck, setSelectedTruck] = useState<Truck | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const { toast } = useToast();
   
   console.log("States initialized");
 
   const { data: trucks = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/trucks"],
+    queryFn: async () => {
+      const response = await fetch('/api/trucks');
+      if (!response.ok) {
+        throw new Error('Failed to fetch trucks');
+      }
+      return response.json();
+    },
     select: (data: Truck[]) => data,
   });
 
@@ -81,42 +92,11 @@ export default function Dashboard() {
   };
 
   const handleImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.xlsx,.xls';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+    setIsExcelImportModalOpen(true);
+  };
 
-      const formData = new FormData();
-      formData.append('file', file);
-
-      try {
-        const response = await fetch('/api/trucks/import', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-          toast({
-            title: "Import réussi",
-            description: result.message,
-          });
-          refetch(); // Refresh the truck list
-        } else {
-          throw new Error(result.message);
-        }
-      } catch (error) {
-        toast({
-          title: "Erreur d'import",
-          description: "Impossible d'importer le fichier Excel.",
-          variant: "destructive",
-        });
-      }
-    };
-    input.click();
+  const handleExcelImportComplete = () => {
+    refetch();
   };
 
   const [isGoogleSheetModalOpen, setIsGoogleSheetModalOpen] = useState(false);
@@ -140,6 +120,8 @@ export default function Dashboard() {
 
     setIsImporting(true);
     try {
+      console.log('Starting Google Sheets import with URL:', googleSheetUrl);
+      
       const response = await fetch('/api/trucks/import-google-sheet', {
         method: 'POST',
         headers: {
@@ -151,21 +133,34 @@ export default function Dashboard() {
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers.get('content-type'));
+
+      // Vérifier si la réponse est du JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Non-JSON response:', textResponse);
+        throw new Error(`Réponse serveur invalide (${response.status}): ${textResponse.substring(0, 200)}`);
+      }
+
       const result = await response.json();
+      console.log('Parsed result:', result);
 
       if (response.ok) {
         toast({
           title: "Import réussi",
-          description: result.message,
+          description: result.message || `${result.imported || 0} camions importés`,
         });
         refetch();
         setIsGoogleSheetModalOpen(false);
         setGoogleSheetUrl("");
         setSheetName("");
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || `Erreur serveur (${response.status})`);
       }
     } catch (error) {
+      console.error('Google Sheets import error:', error);
       const errMsg = error instanceof Error ? error.message : "Impossible d'importer depuis Google Sheets.";
       toast({
         title: "Erreur d'import",
@@ -190,16 +185,28 @@ export default function Dashboard() {
               <Download className="w-4 h-4 mr-2" />
               Exporter
             </Button>
-            <Button onClick={handleImport} className="bg-green-600 hover:bg-green-700">
-              <Upload className="w-4 h-4 mr-2" />
-              Importer Excel
+            <Button
+              onClick={() => setIsExcelImportModalOpen(true)}
+              className="flex items-center space-x-2"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Importer Excel avec mapping</span>
             </Button>
             <Button onClick={handleGoogleSheetImport} variant="outline">
               <Upload className="mr-2 h-4 w-4" />
               Importer Google Sheet
             </Button>
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-gray-600" />
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">Jean Dupont</span>
+              <Avatar 
+                className="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                onClick={() => setIsUserProfileModalOpen(true)}
+              >
+                <AvatarImage src="" />
+                <AvatarFallback className="bg-primary text-white font-semibold">
+                  JD
+                </AvatarFallback>
+              </Avatar>
             </div>
           </div>
         </div>
@@ -388,6 +395,21 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {isExcelImportModalOpen && (
+        <NewExcelImportModal
+          isOpen={isExcelImportModalOpen}
+          onClose={() => setIsExcelImportModalOpen(false)}
+          onImportComplete={handleExcelImportComplete}
+        />
+      )}
+      
+      {isUserProfileModalOpen && (
+        <UserProfileModalSimple
+          isOpen={isUserProfileModalOpen}
+          onClose={() => setIsUserProfileModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

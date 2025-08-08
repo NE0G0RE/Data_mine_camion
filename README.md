@@ -1,8 +1,8 @@
-# 🚛 Data Mine Camion - Gestion de Flotte de Camions
+# 🚛 MaFlotte - Gestion de Flotte de Camions
 
 ## 📋 Description
 
-**Data Mine Camion** est une application web complète de gestion de flotte de camions pour les entreprises multi-filiales. Elle permet de suivre l'état, l'installation et la maintenance des équipements Truck4U et des tablettes dans chaque camion.
+**MaFlotte** est une application web complète de gestion de flotte de camions pour les entreprises multi-filiales. Elle permet de suivre l'état, l'installation et la maintenance des équipements Truck4U et des tablettes dans chaque camion.
 
 ### 🎯 Objectifs du Programme
 

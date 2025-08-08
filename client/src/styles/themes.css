@@ -1,0 +1,200 @@
+/* Thème Charles André - Seul thème disponible */
+/* Couleurs professionnelles adaptées au transport routier */
+
+.theme-charlesandre {
+  /* Couleurs principales Charles André */
+  --primary: 30 64 175; /* Bleu professionnel */
+  --primary-foreground: 255 255 255;
+  --secondary: 220 38 38; /* Rouge Charles André */
+  --secondary-foreground: 255 255 255;
+  --accent: 5 150 105; /* Vert transport */
+  --accent-foreground: 255 255 255;
+  --background: 248 250 252; /* Fond légèrement grisé */
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --popover: 255 255 255;
+  --popover-foreground: 15 23 42;
+  --muted: 241 245 249;
+  --muted-foreground: 71 85 105;
+  --border: 203 213 225;
+  --input: 203 213 225;
+  --ring: 30 64 175;
+}
+
+/* Suppression du thème sombre - Seul Charles André disponible */
+
+/* Styles spécifiques au thème Charles André - Application forcée des couleurs Charles André */
+.theme-charlesandre .bg-primary {
+  background-color: rgb(30 64 175) !important; /* Bleu Charles André */
+}
+
+.theme-charlesandre .text-primary {
+  color: rgb(30 64 175) !important;
+}
+
+.theme-charlesandre .border-primary {
+  border-color: rgb(30 64 175) !important;
+}
+
+.theme-charlesandre .hover\:bg-primary:hover {
+  background-color: rgb(37 99 235) !important; /* Bleu plus clair au hover */
+}
+
+/* Couleurs secondaires (rouge Charles André) */
+.theme-charlesandre .bg-secondary {
+  background-color: rgb(220 38 38) !important;
+}
+
+.theme-charlesandre .text-secondary {
+  color: rgb(220 38 38) !important;
+}
+
+/* Couleurs accent (vert transport) */
+.theme-charlesandre .bg-accent {
+  background-color: rgb(5 150 105) !important;
+}
+
+.theme-charlesandre .text-accent {
+  color: rgb(5 150 105) !important;
+}
+
+.theme-charlesandre .focus\:ring-primary:focus {
+  --tw-ring-color: rgb(30 64 175) !important;
+}
+
+.theme-charlesandre .hover\:ring-primary:hover {
+  --tw-ring-color: rgb(30 64 175) !important;
+}
+
+/* Application sur les boutons et composants UI */
+.theme-charlesandre button.bg-primary {
+  background-color: rgb(30 64 175) !important;
+}
+
+.theme-charlesandre .bg-blue-600 {
+  background-color: rgb(30 64 175) !important;
+}
+
+.theme-charlesandre .hover\:bg-blue-700:hover {
+  background-color: rgb(29 78 216) !important;
+}
+
+/* Styles pour les accents rouges Charles André */
+.theme-charlesandre .accent-red {
+  color: rgb(220 38 38);
+}
+
+.theme-charlesandre .bg-accent-red {
+  background-color: rgb(220 38 38);
+}
+
+/* Header spécial pour le thème Charles André */
+.theme-charlesandre .ca-header {
+  background: linear-gradient(135deg, rgb(30 64 175) 0%, rgb(71 85 105) 100%);
+}
+
+/* Cards avec style Charles André */
+.theme-charlesandre .ca-card {
+  border-left: 4px solid rgb(30 64 175);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.theme-charlesandre .ca-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+  transition: all 0.2s ease-in-out;
+}
+
+/* Boutons avec style Charles André */
+.theme-charlesandre .ca-button {
+  background: linear-gradient(135deg, rgb(30 64 175) 0%, rgb(59 130 246) 100%);
+  border: none;
+  box-shadow: 0 4px 14px 0 rgba(30, 64, 175, 0.3);
+}
+
+.theme-charlesandre .ca-button:hover {
+  background: linear-gradient(135deg, rgb(29 78 216) 0%, rgb(37 99 235) 100%);
+  box-shadow: 0 6px 20px 0 rgba(30, 64, 175, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Sidebar avec style Charles André */
+.theme-charlesandre .ca-sidebar {
+  background: linear-gradient(180deg, rgb(248 250 252) 0%, rgb(241 245 249) 100%);
+  border-right: 1px solid rgb(203 213 225);
+}
+
+/* Navigation avec style Charles André */
+.theme-charlesandre .ca-nav-item {
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.theme-charlesandre .ca-nav-item:hover {
+  background-color: rgb(226 232 240);
+  transform: translateX(4px);
+}
+
+.theme-charlesandre .ca-nav-item.active {
+  background: linear-gradient(135deg, rgb(30 64 175) 0%, rgb(59 130 246) 100%);
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(30, 64, 175, 0.3);
+}
+
+/* Tables avec style Charles André */
+.theme-charlesandre .ca-table {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.theme-charlesandre .ca-table-header {
+  background: linear-gradient(135deg, rgb(241 245 249) 0%, rgb(226 232 240) 100%);
+  border-bottom: 2px solid rgb(30 64 175);
+}
+
+.theme-charlesandre .ca-table-row:hover {
+  background-color: rgb(248 250 252);
+}
+
+/* Stats cards avec style Charles André */
+.theme-charlesandre .ca-stat-card {
+  background: linear-gradient(135deg, rgb(255 255 255) 0%, rgb(248 250 252) 100%);
+  border: 1px solid rgb(226 232 240);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.theme-charlesandre .ca-stat-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  transition: all 0.3s ease-in-out;
+}
+
+/* Animations pour le thème Charles André */
+@keyframes ca-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.theme-charlesandre .ca-animate-in {
+  animation: ca-fade-in 0.5s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .theme-charlesandre .ca-nav-item:hover {
+    transform: none;
+  }
+  
+  .theme-charlesandre .ca-stat-card:hover {
+    transform: none;
+  }
+}

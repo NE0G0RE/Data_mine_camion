@@ -1,0 +1,6 @@
+Numero,Filiale,Marque,Modele,Immatriculation,Status
+001,Paris,Volvo,FH16,AB-123-CD,Actif
+002,Lyon,Mercedes,Actros,EF-456-GH,En maintenance
+003,Marseille,Scania,R500,IJ-789-KL,Actif
+004,Toulouse,DAF,XF,MN-012-OP,Inactif
+005,Bordeaux,Iveco,Stralis,QR-345-ST,Actif

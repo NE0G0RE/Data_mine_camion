@@ -1,3 +1,10 @@
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+
 // server/index.ts
 import dotenv2 from "dotenv";
 import express2 from "express";
@@ -9,6 +16,8 @@ import * as XLSX from "xlsx";
 
 // server/db.ts
 import dotenv from "dotenv";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 
@@ -176,7 +185,8 @@ var insertTruckSchema = z.object({
 });
 
 // server/db.ts
-dotenv.config();
+var __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, "../.env") });
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not defined");
 }
@@ -1052,6 +1062,322 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "\xC9chec d'importation des camions" });
     }
   });
+  app2.post("/api/trucks/import-with-mapping", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Aucun fichier t\xE9l\xE9charg\xE9" });
+      }
+      const fieldMapping = JSON.parse(req.body.fieldMapping || "{}");
+      if (!fieldMapping.numero) {
+        return res.status(400).json({ message: "Le mappage du champ 'numero' est obligatoire" });
+      }
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      let processed = 0;
+      let inserted = 0;
+      let updated = 0;
+      let failed = 0;
+      const errors = [];
+      for (let i = 0; i < jsonData.length; i++) {
+        try {
+          const rowData = jsonData[i];
+          processed++;
+          const getMappedValue = (fieldKey) => {
+            const columnName = fieldMapping[fieldKey];
+            if (!columnName || !rowData[columnName]) return "";
+            return String(rowData[columnName]).trim();
+          };
+          const numero = getMappedValue("numero");
+          if (!numero) {
+            errors.push({ row: i + 1, error: "Num\xE9ro de camion manquant" });
+            failed++;
+            continue;
+          }
+          let filialeId = getMappedValue("filiale");
+          if (!filialeId) {
+            const allFiliales = await storage.getAllFiliales();
+            const defaultFiliale = allFiliales.length > 0 ? allFiliales[0] : null;
+            if (!defaultFiliale) {
+              errors.push({ row: i + 1, error: "Aucune filiale trouv\xE9e ou mapp\xE9e" });
+              failed++;
+              continue;
+            }
+            filialeId = defaultFiliale.id;
+          } else {
+            const filiale = await storage.getFilialeByCode(filialeId);
+            if (filiale) {
+              filialeId = filiale.id;
+            } else {
+              const newFiliale = await storage.createFiliale({
+                nom: filialeId,
+                code: filialeId.toLowerCase().replace(/\s+/g, "_"),
+                actif: true,
+                adresse: "",
+                telephone: "",
+                email: ""
+              });
+              filialeId = newFiliale.id;
+            }
+          }
+          const truckData = {
+            filialeId,
+            numero,
+            modele: getMappedValue("modele") || "",
+            imei: getMappedValue("imei") || "",
+            numeroTruck4U: getMappedValue("numeroTruck4U") || "",
+            statutConduite: mapTruckStatus(getMappedValue("statutConduite") || "test_requis"),
+            equipement: mapStatus(getMappedValue("equipement") || "na"),
+            compatibilite: mapCompatibility(getMappedValue("compatibilite") || "test_requis"),
+            deliverup: mapAppStatus(getMappedValue("deliverup") || "non_installe"),
+            testsOK: mapTestStatus(getMappedValue("testsOK") || "non"),
+            commentaires: getMappedValue("commentaires") || "",
+            // Champs avec valeurs par défaut
+            numeroDA: "",
+            dateDA: "",
+            daValide: "na",
+            numeroCA: "",
+            dateCA: "",
+            dateReception: "",
+            validationReception: "na",
+            installePar: "technicien1",
+            dateInstallation: "",
+            parametrageRealise: "non",
+            localisationFonctionnelle: "",
+            telechargementMemoireMasse: "test_requis",
+            presenceTablette: "non",
+            typeTablette: "standard",
+            modeleTablette: "",
+            numeroSerieTablette: "",
+            versionLogicielTablette: "",
+            compatibiliteTablette: "test_requis",
+            installationDeliverupTablette: "non_installe",
+            testsTablette: "non",
+            presenceCamera: "non",
+            typeCamera: "",
+            modeleCamera: "",
+            numeroSerieCamera: "",
+            compatibiliteCamera: "test_requis",
+            installationDeliverupCamera: "non_installe",
+            testsCamera: "non",
+            presenceMaterielComplementaire: "non",
+            typeMaterielComplementaire: "",
+            modeleMaterielComplementaire: "",
+            numeroSerieMaterielComplementaire: "",
+            compatibiliteMaterielComplementaire: "test_requis",
+            installationDeliverupMaterielComplementaire: "non_installe",
+            testsMaterielComplementaire: "non",
+            createdAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          };
+          const existingTruck = await storage.getTruckByNumero(numero);
+          if (existingTruck) {
+            await storage.updateTruck(existingTruck.id, truckData);
+            updated++;
+          } else {
+            await storage.createTruck(truckData);
+            inserted++;
+          }
+        } catch (error) {
+          console.error(`Erreur ligne ${i + 1}:`, error);
+          errors.push({
+            row: i + 1,
+            error: error instanceof Error ? error.message : "Erreur inconnue"
+          });
+          failed++;
+        }
+      }
+      res.json({
+        success: true,
+        message: `Import termin\xE9: ${inserted} cr\xE9\xE9s, ${updated} mis \xE0 jour, ${failed} \xE9checs`,
+        processed,
+        inserted,
+        updated,
+        failed,
+        errors: errors.slice(0, 10)
+        // Limiter à 10 erreurs pour éviter une réponse trop lourde
+      });
+    } catch (error) {
+      console.error("Erreur d'import Excel:", error);
+      res.status(500).json({
+        message: "Erreur lors de l'import Excel",
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      });
+    }
+  });
+  app2.post("/api/trucks/import-google-sheet", async (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    try {
+      console.log("Google Sheets import request:", req.body);
+      const { spreadsheetUrl, sheetName } = req.body;
+      if (!spreadsheetUrl) {
+        console.log("Missing spreadsheet URL");
+        return res.status(400).json({
+          success: false,
+          message: "URL de la feuille Google Sheets requise"
+        });
+      }
+      let csvUrl = spreadsheetUrl;
+      if (spreadsheetUrl.includes("docs.google.com/spreadsheets")) {
+        const match = spreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (match) {
+          const spreadsheetId = match[1];
+          const gid = sheetName || "0";
+          csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+          console.log("Converted to CSV URL:", csvUrl);
+        } else {
+          console.log("Failed to extract spreadsheet ID from URL");
+          return res.status(400).json({
+            success: false,
+            message: "URL Google Sheets invalide. V\xE9rifiez que l'URL est correcte."
+          });
+        }
+      }
+      console.log("Fetching CSV data from:", csvUrl);
+      const response = await fetch(csvUrl);
+      console.log("CSV fetch response status:", response.status);
+      if (!response.ok) {
+        console.log("Failed to fetch CSV data:", response.status, response.statusText);
+        return res.status(400).json({
+          success: false,
+          message: `Erreur lors de la r\xE9cup\xE9ration des donn\xE9es Google Sheets (${response.status}). V\xE9rifiez que la feuille est publique et accessible.`
+        });
+      }
+      const csvData = await response.text();
+      const workbook = XLSX.read(csvData, { type: "string" });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) {
+        return res.status(400).json({ message: "Aucune donn\xE9e trouv\xE9e dans la feuille Google Sheets" });
+      }
+      let imported = 0;
+      let errors = 0;
+      for (const row of jsonData) {
+        try {
+          const rowData = row;
+          const findValue = (possibleColumns) => {
+            for (const col of possibleColumns) {
+              if (rowData[col] !== void 0 && rowData[col] !== null && String(rowData[col]).trim() !== "") {
+                return String(rowData[col]).trim();
+              }
+            }
+            return "";
+          };
+          const numero = findValue(["Numero", "numero", "Num\xE9ro", "N\xB0", "ID", "id"]);
+          if (!numero) {
+            console.log("Ligne ignor\xE9e - pas de num\xE9ro:", rowData);
+            continue;
+          }
+          const filialeNom = findValue(["Filiale", "filiale", "Soci\xE9t\xE9", "soci\xE9t\xE9", "Company", "company"]) || "D\xE9faut";
+          let filiale = await storage.getFilialeByCode(filialeNom);
+          if (!filiale) {
+            filiale = await storage.createFiliale({
+              nom: filialeNom,
+              code: filialeNom.toUpperCase().replace(/\s+/g, "_"),
+              actif: true
+            });
+          }
+          const truckData = {
+            numero,
+            filialeId: filiale.id,
+            marque: findValue(["Marque", "marque", "Brand", "brand"]),
+            modele: findValue(["Modele", "mod\xE8le", "Model", "model"]),
+            immatriculation: findValue(["Immatriculation", "immatriculation", "Plaque", "plaque", "License", "license"]),
+            status: mapStatus(findValue(["Status", "status", "Statut", "statut", "\xC9tat", "\xE9tat"])),
+            truckStatus: mapTruckStatus(findValue(["TruckStatus", "truckstatus", "StatutCamion", "statut_camion"])),
+            presence: mapPresence(findValue(["Presence", "pr\xE9sence", "Pr\xE9sent", "pr\xE9sent"])),
+            compatibility: mapCompatibility(findValue(["Compatibility", "compatibilit\xE9", "Compatible", "compatible"])),
+            appStatus: mapAppStatus(findValue(["AppStatus", "appstatus", "StatutApp", "statut_app"])),
+            material: mapMaterial(findValue(["Material", "mat\xE9riel", "Mat\xE9riel", "material"])),
+            materialStatus: mapMaterialStatus(findValue(["MaterialStatus", "materialstatus", "StatutMat\xE9riel", "statut_mat\xE9riel"])),
+            testStatus: mapTestStatus(findValue(["TestStatus", "teststatus", "StatutTest", "statut_test"])),
+            notes: findValue(["Notes", "notes", "Commentaires", "commentaires", "Remarks", "remarks"]),
+            updatedAt: /* @__PURE__ */ new Date()
+          };
+          const existingTruck = await storage.getTruckByNumero(numero);
+          if (existingTruck) {
+            await storage.updateTruck(existingTruck.id, truckData);
+          } else {
+            await storage.createTruck(truckData);
+          }
+          imported++;
+        } catch (error) {
+          console.error("Erreur lors du traitement d'une ligne:", error);
+          errors++;
+        }
+      }
+      res.json({
+        success: true,
+        message: `Import Google Sheets r\xE9ussi: ${imported} camions trait\xE9s, ${errors} erreurs`,
+        imported,
+        errors
+      });
+    } catch (error) {
+      console.error("Erreur d'import Google Sheets:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de l'import Google Sheets",
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+        imported: 0,
+        errors: 1
+      });
+    }
+  });
+  app2.get("/api/trucks/export", async (req, res) => {
+    try {
+      console.log("\u{1F504} Starting Excel export...");
+      const trucks2 = await storage.getAllTrucks();
+      console.log(`\u{1F4CA} Found ${trucks2.length} trucks to export`);
+      const XLSX2 = __require("xlsx");
+      const workbook = XLSX2.utils.book_new();
+      const exportData = trucks2.map((truck) => ({
+        "Num\xE9ro": truck.numero || "",
+        "Filiale": truck.filialeId || "",
+        "Marque": truck.marque || "",
+        "Mod\xE8le": truck.modele || "",
+        "Immatriculation": truck.immatriculation || truck.numero || "",
+        "Statut": truck.status || "Actif",
+        "Date de cr\xE9ation": truck.dateCreation ? new Date(truck.dateCreation).toLocaleDateString("fr-FR") : "",
+        "Derni\xE8re modification": truck.dateModification ? new Date(truck.dateModification).toLocaleDateString("fr-FR") : ""
+      }));
+      const worksheet = XLSX2.utils.json_to_sheet(exportData);
+      const columnWidths = [
+        { wch: 15 },
+        // Numéro
+        { wch: 20 },
+        // Filiale
+        { wch: 15 },
+        // Marque
+        { wch: 20 },
+        // Modèle
+        { wch: 15 },
+        // Immatriculation
+        { wch: 12 },
+        // Statut
+        { wch: 15 },
+        // Date de création
+        { wch: 15 }
+        // Dernière modification
+      ];
+      worksheet["!cols"] = columnWidths;
+      XLSX2.utils.book_append_sheet(workbook, worksheet, "Camions");
+      const buffer = XLSX2.write(workbook, { type: "buffer", bookType: "xlsx" });
+      const filename = `camions_export_${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.xlsx`;
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Length", buffer.length);
+      console.log(`\u2705 Export completed: ${trucks2.length} trucks exported to ${filename}`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("\u274C Export error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de l'export Excel",
+        error: error instanceof Error ? error.message : "Erreur inconnue"
+      });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }
@@ -1066,22 +1392,22 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath } from "url";
-var __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { fileURLToPath as fileURLToPath2 } from "url";
+var __dirname2 = path.dirname(fileURLToPath2(import.meta.url));
 var vite_config_default = defineConfig({
   plugins: [
     react()
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared"),
-      "@assets": path.resolve(__dirname, "attached_assets")
+      "@": path.resolve(__dirname2, "client", "src"),
+      "@shared": path.resolve(__dirname2, "shared"),
+      "@assets": path.resolve(__dirname2, "attached_assets")
     }
   },
-  root: path.resolve(__dirname, "client"),
+  root: path.resolve(__dirname2, "client"),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    outDir: path.resolve(__dirname2, "dist/public"),
     emptyOutDir: true
   },
   server: {
@@ -1201,7 +1527,7 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
-  const port = parseInt(process.env.PORT || "5000", 10);
+  const port = parseInt(process.env.PORT || "5002", 10);
   server.listen(port, "localhost", () => {
     log(`serving on port ${port}`);
   });
