@@ -1,5 +1,17 @@
-import { type Truck, type InsertTruck, type Filiale, type InsertFiliale, type Role, type InsertRole, type Utilisateur, type InsertUtilisateur, type PermissionUtilisateur, type InsertPermission } from "@shared/schema";
-import { getDb, trucks, filiales, roles, utilisateurs, permissionsUtilisateur } from "./db";
+import { 
+  type Truck, 
+  type InsertTruck, 
+  type Filiale, 
+  type InsertFiliale, 
+  type Role, 
+  type InsertRole, 
+  type Utilisateur, 
+  type InsertUtilisateur, 
+  type PermissionUtilisateur, 
+  type InsertPermission 
+} from "../shared/dist/schema.js";
+import { getDb } from "./db.js";
+import { trucks, filiales, roles, utilisateurs, permissionsUtilisateur } from "../shared/dist/schema.js";
 import { eq, like, or, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -36,7 +48,7 @@ export interface IStorage {
   // Méthodes pour les camions (avec filiale)
   getTruck(id: string): Promise<Truck | undefined>;
   getAllTrucks(filialeId?: string): Promise<Truck[]>;
-  getTruckByNumero(numero: string, filialeId?: string): Promise<Truck | undefined>;
+  getTruckByImmatriculation(immatriculation: string, filialeId?: string): Promise<Truck | undefined>;
   createTruck(truck: InsertTruck): Promise<Truck>;
   updateTruck(id: string, truck: Partial<InsertTruck>): Promise<Truck | undefined>;
   deleteTruck(id: string): Promise<boolean>;
@@ -213,15 +225,15 @@ export class MySQLStorage implements IStorage {
     return await db.select().from(trucks);
   }
 
-  async getTruckByNumero(numero: string, filialeId?: string): Promise<Truck | undefined> {
+  async getTruckByImmatriculation(immatriculation: string, filialeId?: string): Promise<Truck | undefined> {
     const db = await getDb();
     if (filialeId) {
       const result = await db.select().from(trucks).where(
-        and(eq(trucks.numero, numero), eq(trucks.filialeId, filialeId))
+        and(eq(trucks.immatriculation, immatriculation), eq(trucks.filialeId, filialeId))
       ).limit(1);
       return result[0];
     }
-    const result = await db.select().from(trucks).where(eq(trucks.numero, numero)).limit(1);
+    const result = await db.select().from(trucks).where(eq(trucks.immatriculation, immatriculation)).limit(1);
     return result[0];
   }
 
@@ -231,7 +243,7 @@ export class MySQLStorage implements IStorage {
     // Préparer les données en gérant les types
     const truckData = {
       filialeId: insertTruck.filialeId,
-      numero: insertTruck.numero,
+      immatriculation: insertTruck.immatriculation,
       modele: insertTruck.modele,
       numeroDA: insertTruck.numeroDA || null,
       dateDA: insertTruck.dateDA ? new Date(insertTruck.dateDA) : null,
@@ -267,7 +279,7 @@ export class MySQLStorage implements IStorage {
     await db.insert(trucks).values(truckData);
     
     // Récupérer le camion créé
-    const createdTruck = await this.getTruckByNumero(insertTruck.numero, insertTruck.filialeId);
+    const createdTruck = await this.getTruckByImmatriculation(insertTruck.immatriculation, insertTruck.filialeId);
     if (!createdTruck) {
       throw new Error("Erreur lors de la création du camion");
     }
@@ -281,7 +293,7 @@ export class MySQLStorage implements IStorage {
     const updateValues: any = {};
     
     if (updateData.filialeId !== undefined) updateValues.filialeId = updateData.filialeId;
-    if (updateData.numero !== undefined) updateValues.numero = updateData.numero;
+    if (updateData.immatriculation !== undefined) updateValues.immatriculation = updateData.immatriculation;
     if (updateData.modele !== undefined) updateValues.modele = updateData.modele;
     if (updateData.numeroDA !== undefined) updateValues.numeroDA = updateData.numeroDA || null;
     if (updateData.dateDA !== undefined) updateValues.dateDA = updateData.dateDA ? new Date(updateData.dateDA) : null;
@@ -332,7 +344,7 @@ export class MySQLStorage implements IStorage {
         and(
           eq(trucks.filialeId, filialeId),
           or(
-            like(trucks.numero, searchTerm),
+            like(trucks.immatriculation, searchTerm),
             like(trucks.modele, searchTerm),
             like(trucks.imei, searchTerm),
             like(trucks.numeroTruck4U, searchTerm),
@@ -344,7 +356,7 @@ export class MySQLStorage implements IStorage {
     
     return await db.select().from(trucks).where(
       or(
-        like(trucks.numero, searchTerm),
+        like(trucks.immatriculation, searchTerm),
         like(trucks.modele, searchTerm),
         like(trucks.imei, searchTerm),
         like(trucks.numeroTruck4U, searchTerm),

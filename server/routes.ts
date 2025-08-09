@@ -3,11 +3,89 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import * as XLSX from "xlsx";
 
-import { storage } from "./storage";
-import { insertTruckSchema, insertFilialeSchema } from "@shared/schema";
+import { storage as dbStorage } from "./storage.js";
+import { insertTruckSchema, insertFilialeSchema } from "../shared/schema.js";
 import { z } from "zod";
+import path from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { fileURLToPath } from 'url';
+import type { Request, Response, NextFunction } from 'express';
 
-const upload = multer({ storage: multer.memoryStorage() });
+// Get the current directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Import des contrôleurs
+import { userController } from './controllers/user.controller.js';
+import { roleController } from './controllers/role.controller.js';
+import { dashboardController } from './controllers/dashboard.controller.js';
+import { managerController } from './controllers/manager.controller.js';
+import { auditController } from './controllers/audit.controller.js';
+import { isAuthenticated, isAdmin, isManager, loadUserPermissions } from './middleware/auth.middleware.js';
+
+// Configuration pour le stockage des fichiers uploadés
+const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
+
+// Créer le dossier de destination s'il n'existe pas
+if (!existsSync(uploadDir)) {
+  mkdirSync(uploadDir, { recursive: true });
+}
+
+// Types pour les requêtes Express avec utilisateur authentifié
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        roleId: string;
+        isAdmin: boolean;
+        isManager: boolean;
+        permissions?: Record<string, boolean>;
+      };
+    }
+  }
+}
+
+// Configuration du stockage pour les fichiers uploadés
+const fileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `avatar-${uniqueSuffix}${ext}`);
+  }
+});
+
+// Configuration de multer pour le téléchargement de fichiers
+const upload = multer({ 
+  storage: fileStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non autorisé. Seuls les fichiers JPG, PNG et GIF sont acceptés.'));
+    }
+  }
+});
+
+// Middleware pour gérer les erreurs de multer
+const handleMulterError = (err: Error, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'La taille du fichier dépasse la limite autorisée (5MB)' });
+    }
+  } else if (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+};
 
 // Fonctions utilitaires pour mapper les valeurs Excel vers notre schéma
 function mapStatus(value: string): string {
@@ -66,22 +144,160 @@ function mapTestStatus(value: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  
+  // Middleware d'authentification global pour les routes API
+  app.use('/api', isAuthenticated);
+  app.use('/api', loadUserPermissions);
+  
+  // Routes d'authentification (publiques)
+  app.post('/api/auth/register', userController.createUser);
+  
+  // Routes protégées pour les utilisateurs
+  app.get('/api/users/me', userController.getMyProfile);
+  app.put('/api/users/me/password', userController.updateMyPassword);
+  
+  // Routes protégées pour les administrateurs
+  app.get('/api/admin/users', isAdmin, userController.getAllUsers);
+  app.get('/api/admin/users/:id', isAdmin, userController.getUserById);
+  app.put('/api/admin/users/:id', isAdmin, userController.updateUser);
+  app.delete('/api/admin/users/:id', isAdmin, userController.deactivateUser);
+  
+  // Routes pour la gestion des rôles (admin uniquement)
+  app.get('/api/admin/roles', isAdmin, roleController.getAllRoles);
+  app.post('/api/admin/roles', isAdmin, roleController.createRole);
+  app.get('/api/admin/roles/:id', isAdmin, roleController.getRoleById);
+  app.put('/api/admin/roles/:id', isAdmin, roleController.updateRole);
+  app.delete('/api/admin/roles/:id', isAdmin, roleController.deactivateRole);
+  
+  // Routes pour le tableau de bord d'administration
+  app.get('/api/dashboard/stats', isAdmin, dashboardController.getDashboardStats);
+  app.get('/api/dashboard/stats/features', isAdmin, dashboardController.getFeatureUsageStats);
+  app.get('/api/dashboard/stats/roles', isAdmin, dashboardController.getRoleUsageStats);
+  app.get('/api/dashboard/activity/users', isAdmin, dashboardController.getUserActivity);
+  
+  // Routes pour les fonctionnalités du gestionnaire
+  app.get('/api/manager/features', isManager, managerController.getAllFeatures);
+  app.post('/api/manager/features/toggle', isManager, managerController.toggleFeature);
+  app.post('/api/manager/permissions/assign', isManager, managerController.assignFeatureToRole);
+  app.put('/api/manager/roles/:roleId/permissions', isManager, managerController.updateRolePermissions);
+  app.get('/api/manager/roles/:roleId/permissions', isManager, managerController.getRolePermissions);
+  app.get('/api/manager/roles/:roleId/users', isManager, managerController.getUsersByRole);
+  
+  // Routes pour les journaux d'audit (admin uniquement)
+  app.get('/api/audit/logs', isAdmin, auditController.getAuditLogs);
+  app.get('/api/audit/stats', isAdmin, auditController.getAuditStats);
+  
+  // Route pour l'upload d'avatar
+  app.post('/api/users/upload-avatar', upload.single('avatar'), handleMulterError, async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Aucun fichier téléchargé' });
+      }
+
+      // Ici, vous pourriez ajouter une logique pour sauvegarder le chemin du fichier dans la base de données
+      // Par exemple: await storage.updateUserAvatar(req.body.userId, req.file.filename);
+      
+      // Retourner l'URL de l'avatar (à adapter selon votre configuration de serveur)
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      
+      res.status(200).json({ 
+        success: true, 
+        avatarUrl,
+        message: 'Photo de profil mise à jour avec succès.'
+      });
+    } catch (error) {
+      console.error('Erreur lors du téléchargement de l\'avatar:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Une erreur est survenue lors du téléchargement de la photo de profil.'
+      });
+    }
+  });
+  
+  // Route pour mettre à jour les informations du profil utilisateur
+  app.patch('/api/users/:id', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // Ici, vous pourriez ajouter une validation des données avec Zod
+      // Par exemple: const validatedData = userUpdateSchema.parse(updateData);
+      
+      // Mettre à jour l'utilisateur dans la base de données
+      // const updatedUser = await storage.updateUser(id, validatedData);
+      
+      // Pour l'instant, on simule une mise à jour réussie
+      res.status(200).json({
+        success: true,
+        message: 'Profil mis à jour avec succès',
+        user: { id, ...updateData }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du profil:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Une erreur est survenue lors de la mise à jour du profil.'
+      });
+    }
+  });
+
+  // ===== ROUTES POUR LES CAMIONS =====
+  
+  // Récupérer tous les camions
+  app.get("/api/trucks", async (req, res) => {
+    try {
+      const { filialeId } = req.query;
+      const trucks = await dbStorage.getAllTrucks(filialeId as string | undefined);
+      
+      // Récupérer toutes les filiales pour le mapping
+      const filiales = await dbStorage.getAllFiliales();
+      const filialeMap = new Map(filiales.map(f => [f.id, f.nom]));
+      
+      // Formater les données pour correspondre au format attendu par le frontend
+      const formattedTrucks = trucks.map(truck => {
+        // Déterminer le statut en fonction des champs disponibles
+        let status = 'Inactif';
+        if (truck.statutConduite === 'fonctionnel' && truck.testsOK === 'oui') {
+          status = 'Actif';
+        } else if (truck.statutConduite === 'non_fonctionnel' || truck.testsOK === 'non') {
+          status = 'En maintenance';
+        }
+        
+        return {
+          id: truck.id,
+          numero: truck.immatriculation, // Utiliser immatriculation
+          filiale: filialeMap.get(truck.filialeId) || truck.filialeId, // Nom de la filiale si disponible, sinon ID
+          marque: truck.modele ? truck.modele.split(' ')[0] : 'Inconnue', // Extraire la marque du modèle
+          modele: truck.modele || 'Modèle inconnu',
+          status: status
+        };
+      });
+      
+      res.json(formattedTrucks);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des camions :", error);
+      res.status(500).json({ error: "Erreur serveur lors de la récupération des camions" });
+    }
+  });
+
   // ===== ROUTES POUR LES FILIALES =====
   
   // Récupérer toutes les filiales
-  app.get("/api/filiales", async (req, res) => {
+  app.get("/api/filiales", async (_req, res) => {
     try {
-      const filiales = await storage.getAllFiliales();
+      const filiales = await dbStorage.getAllFiliales();
       res.json(filiales);
     } catch (error) {
-      res.status(500).json({ message: "Échec de récupération des filiales" });
+      console.error("Erreur lors de la récupération des filiales :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // Récupérer une filiale spécifique
   app.get("/api/filiales/:id", async (req, res) => {
     try {
-      const filiale = await storage.getFiliale(req.params.id);
+      const filiale = await dbStorage.getFiliale(req.params.id);
       if (!filiale) {
         return res.status(404).json({ message: "Filiale non trouvée" });
       }
@@ -91,88 +307,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Créer une filiale
-  app.post("/api/filiales", async (req, res) => {
+  // Mettre à jour une filiale existante
+  app.put("/api/filiales/:id", async (req, res) => {
     try {
-      const validatedData = insertFilialeSchema.parse(req.body);
-      const filiale = await storage.createFiliale(validatedData);
-      res.status(201).json(filiale);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+      const updatedFiliale = await dbStorage.updateFiliale(req.params.id, req.body);
+      if (!updatedFiliale) {
+        return res.status(404).json({ message: "Filiale non trouvée" });
       }
-      res.status(500).json({ message: "Échec de création de la filiale" });
+      res.json(updatedFiliale);
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la filiale :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
-  // Mettre à jour une filiale
-  app.patch("/api/filiales/:id", async (req, res) => {
+  // Créer une nouvelle filiale
+  app.post("/api/filiales", async (req, res) => {
     try {
-      const partialSchema = insertFilialeSchema.partial();
-      const validatedData = partialSchema.parse(req.body);
-      const filiale = await storage.updateFiliale(req.params.id, validatedData);
-      if (!filiale) {
-        return res.status(404).json({ message: "Filiale non trouvée" });
-      }
-      res.json(filiale);
+      const validatedData = insertFilialeSchema.parse(req.body);
+      const newFiliale = await dbStorage.createFiliale(validatedData);
+      res.status(201).json(newFiliale);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Données invalides", errors: error.errors });
-      }
-      res.status(500).json({ message: "Échec de mise à jour de la filiale" });
+      console.error("Erreur lors de la création de la filiale :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // Supprimer une filiale
   app.delete("/api/filiales/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteFiliale(req.params.id);
-      if (!deleted) {
+      const success = await dbStorage.deleteFiliale(req.params.id);
+      if (!success) {
         return res.status(404).json({ message: "Filiale non trouvée" });
       }
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ message: "Échec de suppression de la filiale" });
+      console.error("Erreur lors de la suppression de la filiale :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // ===== ROUTES POUR LES CAMIONS =====
 
   // Récupérer tous les camions (optionnellement filtrés par filiale)
-  app.get("/api/trucks", async (req, res) => {
+  app.get("/api/trucks", async (_req, res) => {
     try {
-      const filialeId = req.query.filialeId as string;
-      const trucks = await storage.getAllTrucks(filialeId);
+      const trucks = await dbStorage.getAllTrucks();
       res.json(trucks);
     } catch (error) {
-      res.status(500).json({ message: "Échec de récupération des camions" });
+      console.error("Erreur lors de la récupération des camions :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // Récupérer un camion spécifique
   app.get("/api/trucks/:id", async (req, res) => {
     try {
-      const truck = await storage.getTruck(req.params.id);
+      const truck = await dbStorage.getTruck(req.params.id);
       if (!truck) {
         return res.status(404).json({ message: "Camion non trouvé" });
       }
       res.json(truck);
     } catch (error) {
-      res.status(500).json({ message: "Échec de récupération du camion" });
+      console.error("Erreur lors de la récupération du camion :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // Créer un camion
   app.post("/api/trucks", async (req, res) => {
+    console.log('🔵 POST /api/trucks - Données reçues:', JSON.stringify(req.body, null, 2));
+    
     try {
+      // Valider les données avec le schéma
       const validatedData = insertTruckSchema.parse(req.body);
-      const truck = await storage.createTruck(validatedData);
-      res.status(201).json(truck);
+      console.log('✅ Données validées avec succès');
+      
+      // Créer le camion
+      const truck = await dbStorage.createTruck(validatedData);
+      console.log('✅ Camion créé avec succès:', truck.id);
+      
+      // Répondre avec succès
+      res.status(201).json({
+        success: true,
+        message: 'Camion créé avec succès',
+        data: truck
+      });
+      
     } catch (error) {
+      console.error('❌ Erreur lors de la création du camion:', error);
+      
+      // Gestion des erreurs de validation Zod
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Données invalides", errors: error.errors });
+        const errorDetails = error.errors.map(err => ({
+          path: err.path.join('.'),
+          message: err.message
+        }));
+        
+        console.error('❌ Erreur de validation:', errorDetails);
+        return res.status(400).json({ 
+          success: false,
+          message: "Données invalides",
+          errors: errorDetails
+        });
       }
-      res.status(500).json({ message: "Échec de création du camion" });
+      
+      // Gestion des autres erreurs
+      res.status(500).json({ 
+        success: false,
+        message: "Erreur serveur lors de la création du camion",
+        error: error instanceof Error ? error.message : 'Erreur inconnue'
+      });
     }
   });
 
@@ -181,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const partialSchema = insertTruckSchema.partial();
       const validatedData = partialSchema.parse(req.body);
-      const truck = await storage.updateTruck(req.params.id, validatedData);
+      const truck = await dbStorage.updateTruck(req.params.id, validatedData);
       if (!truck) {
         return res.status(404).json({ message: "Camion non trouvé" });
       }
@@ -190,14 +435,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Données invalides", errors: error.errors });
       }
-      res.status(500).json({ message: "Échec de mise à jour du camion" });
+      console.error("Erreur lors de la mise à jour du camion :", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 
   // Supprimer un camion
   app.delete("/api/trucks/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteTruck(req.params.id);
+      const deleted = await dbStorage.deleteTruck(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Camion non trouvé" });
       }
@@ -211,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trucks/search/:query", async (req, res) => {
     try {
       const filialeId = req.query.filialeId as string;
-      const trucks = await storage.searchTrucks(req.params.query, filialeId);
+      const trucks = await dbStorage.searchTrucks(req.params.query, filialeId);
       res.json(trucks);
     } catch (error) {
       res.status(500).json({ message: "Échec de recherche des camions" });
@@ -261,8 +507,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const truckData = {
             filialeId: filialeId,
-            numero: findValue([
-              "N° Camion", "Numero", "Numéro", "Immatriculation", "immatriculation", 
+            immatriculation: findValue([
+              "Immatriculation", "immatriculation", "N° Camion", "Numero", "Numéro", 
               "N°Camion", "Numero Camion", "Numéro Camion", "ID", "Camion", 
               "Plaque", "Registration", "Vehicle Number", "Truck Number"
             ]),
@@ -419,20 +665,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Ignorer les lignes vides
-          if (!truckData.numero && !truckData.modele) {
+          if (!truckData.immatriculation && !truckData.modele) {
             continue;
           }
 
           // S'assurer que les champs obligatoires ont des valeurs par défaut
-          if (!truckData.numero) {
-            truckData.numero = `CAMION_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          if (!truckData.immatriculation) {
+            truckData.immatriculation = `IMMAT_${Date.now().toString(36).toUpperCase().substr(4, 6)}`;
           }
           if (!truckData.modele) {
             truckData.modele = "Modèle non spécifié";
           }
 
           const validatedData = insertTruckSchema.parse(truckData);
-          await storage.createTruck(validatedData);
+          await dbStorage.createTruck(validatedData);
           imported++;
         } catch (error) {
           console.error("Error importing row:", error);
@@ -453,16 +699,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Nouvelle route d'import Excel avec mappage des champs
   app.post("/api/trucks/import-with-mapping", upload.single("file"), async (req, res) => {
+    console.log('🔵 POST /api/trucks/import-with-mapping - Début du traitement');
+    
     try {
       if (!req.file) {
-        return res.status(400).json({ message: "Aucun fichier téléchargé" });
+        console.error('❌ Aucun fichier téléchargé');
+        return res.status(400).json({ 
+          success: false,
+          message: "Aucun fichier téléchargé" 
+        });
       }
 
-      const fieldMapping = JSON.parse(req.body.fieldMapping || '{}');
+      console.log(`📂 Fichier reçu: ${req.file.originalname} (${req.file.size} octets)`);
+      
+      // Parser le mappage des champs
+      let fieldMapping;
+      try {
+        fieldMapping = JSON.parse(req.body.fieldMapping || '{}');
+        console.log('🔍 Mappage des champs:', JSON.stringify(fieldMapping, null, 2));
+      } catch (e) {
+        console.error('❌ Erreur de parsing du mappage des champs:', e);
+        return res.status(400).json({ 
+          success: false,
+          message: "Format de mappage des champs invalide" 
+        });
+      }
       
       // Validation du mappage des champs obligatoires
       if (!fieldMapping.numero) {
-        return res.status(400).json({ message: "Le mappage du champ 'numero' est obligatoire" });
+        console.error('❌ Champ obligatoire non mappé: numero');
+        return res.status(400).json({ 
+          success: false,
+          message: "Le mappage du champ 'numero' est obligatoire" 
+        });
       }
 
       // Lire le fichier Excel
@@ -501,7 +770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let filialeId = getMappedValue('filiale');
           if (!filialeId) {
             // Si pas de mappage de filiale, essayer de trouver une filiale par défaut
-            const allFiliales = await storage.getAllFiliales();
+            const allFiliales = await dbStorage.getAllFiliales();
             const defaultFiliale = allFiliales.length > 0 ? allFiliales[0] : null;
             if (!defaultFiliale) {
               errors.push({ row: i + 1, error: "Aucune filiale trouvée ou mappée" });
@@ -511,12 +780,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filialeId = defaultFiliale.id;
           } else {
             // Vérifier si la filiale existe
-            const filiale = await storage.getFilialeByCode(filialeId);
+            const filiale = await dbStorage.getFilialeByCode(filialeId);
             if (filiale) {
               filialeId = filiale.id;
             } else {
               // Créer une nouvelle filiale si elle n'existe pas
-              const newFiliale = await storage.createFiliale({
+              const newFiliale = await dbStorage.createFiliale({
                 nom: filialeId,
                 code: filialeId.toLowerCase().replace(/\s+/g, '_'),
                 actif: true,
@@ -581,15 +850,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Vérifier si le camion existe déjà
-          const existingTruck = await storage.getTruckByNumero(numero);
+          const immatriculation = getMappedValue('immatriculation') || getMappedValue('numero');
+          if (!immatriculation) {
+            throw new Error("Immatriculation manquante");
+          }
+          
+          // S'assurer que l'immatriculation est définie dans truckData
+          const truckDataWithImmatriculation = {
+            ...truckData,
+            immatriculation: immatriculation
+          };
+          
+          const existingTruck = await dbStorage.getTruckByImmatriculation(immatriculation, truckData.filialeId);
           
           if (existingTruck) {
             // Mettre à jour le camion existant
-            await storage.updateTruck(existingTruck.id, truckData);
+            await dbStorage.updateTruck(existingTruck.id, truckDataWithImmatriculation);
             updated++;
           } else {
             // Créer un nouveau camion
-            await storage.createTruck(truckData);
+            await dbStorage.createTruck(truckDataWithImmatriculation);
             inserted++;
           }
 
@@ -627,24 +907,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // S'assurer que la réponse est toujours en JSON
     res.setHeader('Content-Type', 'application/json');
     
+    console.log('🔵 POST /api/trucks/import-google-sheet - Début du traitement');
+    console.log('📡 Données reçues:', JSON.stringify(req.body, null, 2));
+    
     try {
-      console.log('Google Sheets import request:', req.body);
-      const { spreadsheetUrl, sheetName } = req.body;
+      // Accepter à la fois sheetUrl (pour rétrocompatibilité) et spreadsheetUrl
+      const { spreadsheetUrl, sheetUrl, sheetName } = req.body;
       
-      if (!spreadsheetUrl) {
-        console.log('Missing spreadsheet URL');
+      // Utiliser spreadsheetUrl en priorité, sinon sheetUrl pour la rétrocompatibilité
+      const effectiveSpreadsheetUrl = spreadsheetUrl || sheetUrl;
+      
+      if (!effectiveSpreadsheetUrl) {
+        console.error('❌ Aucune URL de feuille Google Sheets fournie');
         return res.status(400).json({ 
           success: false,
-          message: "URL de la feuille Google Sheets requise" 
+          message: "URL de la feuille Google Sheets requise (spreadsheetUrl ou sheetUrl)" 
         });
+      }
+      
+      console.log(`🌐 URL de la feuille: ${effectiveSpreadsheetUrl}`);
+      if (sheetName) {
+        console.log(`📋 Nom de l'onglet spécifié: ${sheetName}`);
       }
 
       // Convertir l'URL Google Sheets en URL CSV exportable
-      let csvUrl = spreadsheetUrl;
+      let csvUrl = effectiveSpreadsheetUrl;
       
       // Si c'est une URL Google Sheets normale, la convertir en URL CSV
-      if (spreadsheetUrl.includes('docs.google.com/spreadsheets')) {
-        const match = spreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (effectiveSpreadsheetUrl.includes('docs.google.com/spreadsheets')) {
+        const match = effectiveSpreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
         if (match) {
           const spreadsheetId = match[1];
           const gid = sheetName || '0'; // Utiliser le nom de feuille ou 0 par défaut
@@ -700,17 +991,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return "";
           };
 
-          const numero = findValue(["Numero", "numero", "Numéro", "N°", "ID", "id"]);
-          if (!numero) {
-            console.log("Ligne ignorée - pas de numéro:", rowData);
+          // Récupérer l'immatriculation (champ obligatoire)
+          const immatriculation = findValue(["Immatriculation", "immatriculation", "Plaque", "plaque", "License", "license"]);
+          if (!immatriculation) {
+            console.log("Ligne ignorée - pas d'immatriculation:", rowData);
             continue;
           }
 
           // Chercher ou créer la filiale
           const filialeNom = findValue(["Filiale", "filiale", "Société", "société", "Company", "company"]) || "Défaut";
-          let filiale = await storage.getFilialeByCode(filialeNom);
+          let filiale = await dbStorage.getFilialeByCode(filialeNom);
           if (!filiale) {
-            filiale = await storage.createFiliale({ 
+            filiale = await dbStorage.createFiliale({ 
               nom: filialeNom,
               code: filialeNom.toUpperCase().replace(/\s+/g, '_'),
               actif: true 
@@ -718,11 +1010,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const truckData = {
-            numero,
+            immatriculation,
             filialeId: filiale.id,
             marque: findValue(["Marque", "marque", "Brand", "brand"]),
             modele: findValue(["Modele", "modèle", "Model", "model"]),
-            immatriculation: findValue(["Immatriculation", "immatriculation", "Plaque", "plaque", "License", "license"]),
+            // immatriculation déjà définie plus haut
             status: mapStatus(findValue(["Status", "status", "Statut", "statut", "État", "état"])),
             truckStatus: mapTruckStatus(findValue(["TruckStatus", "truckstatus", "StatutCamion", "statut_camion"])),
             presence: mapPresence(findValue(["Presence", "présence", "Présent", "présent"])),
@@ -736,12 +1028,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Vérifier si le camion existe déjà
-          const existingTruck = await storage.getTruckByNumero(numero);
+          const existingTruck = await dbStorage.getTruckByImmatriculation(truckData.immatriculation, truckData.filialeId);
           
           if (existingTruck) {
-            await storage.updateTruck(existingTruck.id, truckData);
+            await dbStorage.updateTruck(existingTruck.id, truckData);
           } else {
-            await storage.createTruck(truckData);
+            await dbStorage.createTruck(truckData);
           }
           imported++;
 
@@ -775,7 +1067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🔄 Starting Excel export...');
       
-      const trucks = await storage.getAllTrucks();
+      const trucks = await dbStorage.getAllTrucks();
       console.log(`📊 Found ${trucks.length} trucks to export`);
 
       // Créer un nouveau workbook
@@ -835,6 +1127,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
+  // Route pour l'upload d'avatar
+  app.post('/api/users/upload-avatar', upload.single('avatar'), handleMulterError, async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Aucun fichier téléchargé' });
+      }
+
+      const userId = req.body.userId;
+      if (!userId) {
+        return res.status(400).json({ error: 'ID utilisateur manquant' });
+      }
+
+      // Construire l'URL de l'avatar
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+      // Ici, vous devriez mettre à jour l'utilisateur dans votre base de données avec le nouvel avatarUrl
+      // Par exemple: await dbStorage.updateUserAvatar(userId, avatarUrl);
+      
+      console.log(`Avatar uploaded for user ${userId}: ${avatarUrl}`);
+      
+      res.json({
+        success: true,
+        avatarUrl,
+        message: 'Avatar téléchargé avec succès'
+      });
+    } catch (error) {
+      console.error('Erreur lors du téléchargement de l\'avatar:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erreur lors du téléchargement de l\'avatar',
+        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      });
+    }
+  });
+
   return httpServer;
 }

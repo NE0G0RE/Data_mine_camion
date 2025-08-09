@@ -1,6 +1,39 @@
+// Re-export all schema-related types and tables from individual schema files
+export * from './schema/role.schema.js';
+export * from './schema/user.schema.js';
+export * from './schema/user-role.schema.js';
+export * from './schema/feature.schema.js';
+
+// Keep the existing schema definitions
 import { sql } from "drizzle-orm";
 import { mysqlTable, text, varchar, date, boolean, int } from "drizzle-orm/mysql-core";
 import { z } from "zod";
+
+// Table des fonctionnalités
+export const features = mysqlTable("features", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`(UUID())`),
+  code: varchar("code", { length: 100 }).notNull().unique(),
+  nom: varchar("nom", { length: 255 }).notNull(),
+  description: text("description"),
+  categorie: varchar("categorie", { length: 100 }).notNull(),
+  actif: boolean("actif").default(true),
+  dateCreation: date("date_creation").default(sql`(CURRENT_TIMESTAMP)`),
+  dateMiseAJour: date("date_mise_a_jour").default(sql`(CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`),
+});
+
+// Table des fonctionnalités par rôle
+export const roleFeatures = mysqlTable("role_features", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`(UUID())`),
+  roleId: varchar("role_id", { length: 255 }).notNull(),
+  featureId: varchar("feature_id", { length: 255 }).notNull(),
+  peutVoir: boolean("peut_voir").default(false),
+  peutModifier: boolean("peut_modifier").default(false),
+  peutSupprimer: boolean("peut_supprimer").default(false),
+  dateAttribution: date("date_attribution").default(sql`(CURRENT_TIMESTAMP)`),
+  attribuePar: varchar("attribue_par", { length: 255 }).notNull(),
+  dateFin: date("date_fin"),
+  commentaire: text("commentaire"),
+});
 
 // Table des rôles
 export const roles = mysqlTable("roles", {
@@ -19,6 +52,8 @@ export const utilisateurs = mysqlTable("utilisateurs", {
   nom: varchar("nom", { length: 255 }).notNull(),
   prenom: varchar("prenom", { length: 255 }).notNull(),
   motDePasse: varchar("mot_de_passe", { length: 255 }).notNull(),
+  photoProfil: varchar("photo_profil", { length: 255 }),
+  preferences: text("preferences"),
   actif: boolean("actif").default(true),
   dateCreation: date("date_creation").default(sql`(CURRENT_DATE)`),
 });
@@ -30,7 +65,9 @@ export const permissionsUtilisateur = mysqlTable("permissions_utilisateur", {
   roleId: varchar("role_id", { length: 255 }).notNull(),
   filialeId: varchar("filiale_id", { length: 255 }), // null pour les rôles groupe
   dateAttribution: date("date_attribution").default(sql`(CURRENT_DATE)`),
-  attribuePar: varchar("attribue_par", { length: 255 }).notNull(), // ID de l'admin qui a attribué le rôle
+  attribuePar: varchar("attribue_par", { length: 255 }).notNull(),
+  dateFin: date("date_fin"),
+  commentaire: text("commentaire"),
   actif: boolean("actif").default(true),
 });
 
@@ -51,7 +88,7 @@ export const filiales = mysqlTable("filiales", {
 export const trucks = mysqlTable("trucks", {
   id: varchar("id", { length: 255 }).primaryKey().default(sql`(UUID())`),
   filialeId: varchar("filiale_id", { length: 255 }).notNull(),
-  numero: varchar("numero", { length: 255 }).notNull(),
+  immatriculation: varchar("immatriculation", { length: 255 }).notNull(),
   modele: varchar("modele", { length: 255 }).notNull(),
   
   // Section État
@@ -132,10 +169,10 @@ export const insertFilialeSchema = z.object({
   actif: z.boolean().default(true),
 });
 
-// Schéma de validation pour les insertions de camions
+// Schéma de validation pour l'insertion d'un camion
 export const insertTruckSchema = z.object({
-  filialeId: z.string().min(1, "La filiale est obligatoire"),
-  numero: z.string().min(1, "Le numéro est obligatoire"),
+  filialeId: z.string().min(1, "L'ID de la filiale est obligatoire"),
+  immatriculation: z.string().min(1, "L'immatriculation est obligatoire"),
   modele: z.string().min(1, "Le modèle est obligatoire"),
   numeroDA: z.string().optional(),
   dateDA: z.string().optional(),

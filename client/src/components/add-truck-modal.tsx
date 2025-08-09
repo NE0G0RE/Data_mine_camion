@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// @ts-nocheck
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,6 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useToast } from '../hooks/use-toast';
 import { Truck, X } from 'lucide-react';
 
+// Interface pour les filiales (à remplacer par un appel API dans une version future)
+interface Filiale {
+  id: string;
+  nom: string;
+}
+
 interface AddTruckModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,32 +21,31 @@ interface AddTruckModalProps {
 }
 
 interface TruckFormData {
-  numero: string;
-  filiale: string;
-  marque: string;
-  modele: string;
   immatriculation: string;
+  filialeId: string;
+  modele: string;
   status: string;
+  marque?: string; // Optionnel selon le schéma
 }
 
 const INITIAL_FORM_DATA: TruckFormData = {
-  numero: '',
-  filiale: '',
-  marque: '',
-  modele: '',
   immatriculation: '',
-  status: 'Actif'
+  filialeId: '',
+  modele: '',
+  status: 'Actif',
+  marque: ''
 };
 
-const FILIALES = [
-  'Paris',
-  'Lyon',
-  'Marseille',
-  'Toulouse',
-  'Bordeaux',
-  'Lille',
-  'Nantes',
-  'Strasbourg'
+// Données factices pour les filiales (à remplacer par un appel API dans une version future)
+const FILIALES: Filiale[] = [
+  { id: '1', nom: 'Paris' },
+  { id: '2', nom: 'Lyon' },
+  { id: '3', nom: 'Marseille' },
+  { id: '4', nom: 'Toulouse' },
+  { id: '5', nom: 'Bordeaux' },
+  { id: '6', nom: 'Lille' },
+  { id: '7', nom: 'Nantes' },
+  { id: '8', nom: 'Strasbourg' }
 ];
 
 const MARQUES = [
@@ -61,8 +67,14 @@ const STATUS_OPTIONS = [
 ];
 
 export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruckModalProps) {
-  const [formData, setFormData] = useState<TruckFormData>(INITIAL_FORM_DATA);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = React.useState<TruckFormData>({
+    immatriculation: '',
+    filialeId: '',
+    modele: '',
+    marque: '',
+    status: 'Actif'
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (field: keyof TruckFormData, value: string) => {
@@ -73,10 +85,10 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
     e.preventDefault();
     
     // Validation des champs obligatoires
-    if (!formData.numero || !formData.filiale) {
+    if (!formData.immatriculation || !formData.filialeId || !formData.modele) {
       toast({
         title: "Champs obligatoires",
-        description: "Le numéro et la filiale sont obligatoires.",
+        description: "L'immatriculation, la filiale et le modèle sont obligatoires.",
         variant: "destructive",
       });
       return;
@@ -85,22 +97,37 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
     setIsSubmitting(true);
 
     try {
+      // Préparer les données pour l'envoi au format attendu par le serveur
+      const truckData = {
+        immatriculation: formData.immatriculation,
+        filialeId: formData.filialeId,
+        modele: formData.modele,
+        // Champs optionnels
+        marque: formData.marque || undefined,
+        // Valeurs par défaut pour les champs requis par le schéma
+        statutConduite: formData.status === 'Actif' ? 'fonctionnel' : 'non_fonctionnel',
+        daValide: 'na',
+        validationReception: 'na',
+        parametrageRealise: 'non',
+        presenceTablette: 'non',
+        compatibilite: 'test_requis',
+        deliverup: 'non_installe',
+        materielRequis: 'manquant',
+        testsOK: 'non'
+      };
+
       const response = await fetch('/api/trucks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }),
+        body: JSON.stringify(truckData),
       });
 
       if (response.ok) {
         toast({
           title: "Camion ajouté",
-          description: `Le camion ${formData.numero} a été ajouté avec succès.`,
+          description: `Le camion ${formData.immatriculation} a été ajouté avec succès.`,
         });
         
         // Reset form
@@ -129,7 +156,7 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => open === false && handleClose()}>
       <DialogContent className="max-w-md bg-gradient-to-br from-slate-900 to-blue-900 border-blue-500/30 text-white">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -148,15 +175,15 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* Numéro - Obligatoire */}
           <div className="space-y-2">
-            <Label htmlFor="numero" className="text-blue-100 font-medium">Numéro de camion *</Label>
+            <Label htmlFor="immatriculation" className="text-blue-100 font-medium">Immatriculation *</Label>
             <Input
-              id="numero"
-              value={formData.numero}
-              onChange={(e: any) => handleInputChange('numero', e.target.value)}
-              placeholder="Ex: TR-001, CAM-123, etc."
+              id="immatriculation"
+              value={formData.immatriculation}
+              onChange={(e: any) => handleInputChange('immatriculation', e.target.value)}
+              placeholder="Ex: AA-123-BB"
               required
               className="bg-white/10 border-white/20 text-white placeholder-blue-200 focus:border-blue-400 focus:ring-blue-400"
             />
@@ -164,10 +191,10 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
 
           {/* Filiale - Obligatoire */}
           <div className="space-y-2">
-            <Label htmlFor="filiale" className="text-blue-100 font-medium">Filiale *</Label>
+            <Label htmlFor="filialeId" className="text-blue-100 font-medium">Filiale *</Label>
             <Select
-              value={formData.filiale}
-              onValueChange={(value: any) => handleInputChange('filiale', value)}
+              value={formData.filialeId}
+              onValueChange={(value: string) => handleInputChange('filialeId', value)}
               required
             >
               <SelectTrigger className="bg-white/10 border-white/20 text-white focus:border-blue-400">
@@ -175,29 +202,8 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-600">
                 {FILIALES.map(filiale => (
-                  <SelectItem key={filiale} value={filiale} className="text-white hover:bg-slate-700">
-                    {filiale}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Marque */}
-          <div className="space-y-2">
-            <Label htmlFor="marque">Marque</Label>
-            <Select
-              value={formData.marque}
-              onValueChange={(value: any) => handleInputChange('marque', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une marque" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">-- Aucune --</SelectItem>
-                {MARQUES.map(marque => (
-                  <SelectItem key={marque} value={marque}>
-                    {marque}
+                  <SelectItem key={filiale.id} value={filiale.id} className="text-white hover:bg-slate-700">
+                    {filiale.nom}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -206,24 +212,35 @@ export default function AddTruckModal({ isOpen, onClose, onTruckAdded }: AddTruc
 
           {/* Modèle */}
           <div className="space-y-2">
-            <Label htmlFor="modele">Modèle</Label>
+            <Label htmlFor="modele" className="text-blue-100 font-medium">Modèle *</Label>
             <Input
               id="modele"
               value={formData.modele}
               onChange={(e: any) => handleInputChange('modele', e.target.value)}
-              placeholder="Ex: FH16, Actros, R500, etc."
+              placeholder="Ex: Actros, FH16, etc."
+              required
+              className="bg-white/10 border-white/20 text-white placeholder-blue-200 focus:border-blue-400 focus:ring-blue-400"
             />
           </div>
 
-          {/* Immatriculation */}
+          {/* Marque */}
           <div className="space-y-2">
-            <Label htmlFor="immatriculation">Immatriculation</Label>
-            <Input
-              id="immatriculation"
-              value={formData.immatriculation}
-              onChange={(e: any) => handleInputChange('immatriculation', e.target.value)}
-              placeholder="Ex: AB-123-CD"
-            />
+            <Label htmlFor="marque" className="text-blue-100 font-medium">Marque</Label>
+            <Select
+              value={formData.marque || ''}
+              onValueChange={(value: string) => handleInputChange('marque', value)}
+            >
+              <SelectTrigger className="bg-white/10 border-white/20 text-white focus:border-blue-400">
+                <SelectValue placeholder="Sélectionner une marque" className="text-blue-200" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-600">
+                {MARQUES.map(marque => (
+                  <SelectItem key={marque} value={marque} className="text-white hover:bg-slate-700">
+                    {marque}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Statut */}

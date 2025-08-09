@@ -1,6 +1,5 @@
 import { readFile } from 'fs/promises';
 import { importExcelFile } from './excel-import.service';
-import type { ImportResult } from './excel-import.service';
 
 async function testImport() {
   try {
@@ -26,8 +25,8 @@ async function testImport() {
     
     if (result.results.length > 0) {
       console.log('\nCamions traités:');
-      result.results.forEach(({ status, numero }) => {
-        console.log(`- ${numero}: ${status === 'inserted' ? 'Ajouté' : 'Mis à jour'}`);
+      result.results.forEach(({ status, immatriculation }) => {
+        console.log(`- ${immatriculation}: ${status === 'inserted' ? 'Ajouté' : 'Mis à jour'}`);
       });
     }
 

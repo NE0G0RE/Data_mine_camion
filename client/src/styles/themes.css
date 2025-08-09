@@ -1,6 +1,4 @@
-/* Thème Charles André - Seul thème disponible */
-/* Couleurs professionnelles adaptées au transport routier */
-
+/* Thème Charles André */
 .theme-charlesandre {
   /* Couleurs principales Charles André */
   --primary: 30 64 175; /* Bleu professionnel */
@@ -22,7 +20,47 @@
   --ring: 30 64 175;
 }
 
-/* Suppression du thème sombre - Seul Charles André disponible */
+/* Thème Classique */
+.theme-classique {
+  --primary: 37 99 235; /* Bleu vif */
+  --primary-foreground: 255 255 255;
+  --secondary: 79 70 229; /* Violet */
+  --secondary-foreground: 255 255 255;
+  --accent: 14 165 233; /* Bleu clair */
+  --accent-foreground: 255 255 255;
+  --background: 255 255 255; /* Blanc pur */
+  --foreground: 17 24 39;
+  --card: 255 255 255;
+  --card-foreground: 17 24 39;
+  --popover: 255 255 255;
+  --popover-foreground: 17 24 39;
+  --muted: 249 250 251;
+  --muted-foreground: 107 114 128;
+  --border: 229 231 235;
+  --input: 209 213 219;
+  --ring: 37 99 235;
+}
+
+/* Thème Sombre */
+.theme-sombre {
+  --primary: 59 130 246; /* Bleu vif */
+  --primary-foreground: 255 255 255;
+  --secondary: 139 92 246; /* Violet */
+  --secondary-foreground: 255 255 255;
+  --accent: 16 185 129; /* Vert émeraude */
+  --accent-foreground: 255 255 255;
+  --background: 15 23 42; /* Bleu nuit très foncé */
+  --foreground: 248 250 252;
+  --card: 30 41 59;
+  --card-foreground: 248 250 252;
+  --popover: 30 41 59;
+  --popover-foreground: 248 250 252;
+  --muted: 30 41 59;
+  --muted-foreground: 148 163 184;
+  --border: 51 65 85;
+  --input: 51 65 85;
+  --ring: 59 130 246;
+}
 
 /* Styles spécifiques au thème Charles André - Application forcée des couleurs Charles André */
 .theme-charlesandre .bg-primary {

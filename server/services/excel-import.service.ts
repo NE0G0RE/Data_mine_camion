@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { eq, sql } from 'drizzle-orm';
-import { trucks, filiales } from '@shared/schema';
-import { initDatabase } from '../db';
+import { filiales, trucks, type InsertTruck, type InsertFiliale } from "../../shared/dist/schema.js";
+import { getDb } from '../db.js';
 
 // Types de statut possibles
 export const statusConduite = ['fonctionnel', 'non_fonctionnel', 'test_requis'] as const;
@@ -27,7 +27,7 @@ export interface ImportOptions {
 
 // Interface pour les options de mappage des champs
 export interface FieldMapping {
-  numero: string[];           // Noms possibles pour le numéro de camion
+  immatriculation: string[];   // Noms possibles pour l'immatriculation du camion
   modele: string[];          // Noms possibles pour le modèle
   filiale: string[];         // Noms possibles pour la filiale
   imei: string[];            // Noms possibles pour l'IMEI
@@ -40,16 +40,9 @@ export interface FieldMapping {
   commentaires: string[];    // Noms possibles pour les commentaires
 }
 
-// Options d'import par défaut
-export const defaultImportOptions: ImportOptions = {
-  fieldMapping: defaultFieldMapping,
-  skipMissingFields: true,
-  requireFiliale: true
-};
-
 // Mappage par défaut
 export const defaultFieldMapping: FieldMapping = {
-  numero: ['N° Camion', 'Numero', 'N°', 'Immatriculation', 'Camion'],
+  immatriculation: ['Immatriculation', 'N° Immatriculation', 'Immat', 'Camion', 'N° Camion'],
   modele: ['Modèle', 'Modele', 'Type'],
   filiale: ['Filiale', 'Site'],
   imei: ['IMEI', 'N° IMEI'],
@@ -62,6 +55,13 @@ export const defaultFieldMapping: FieldMapping = {
   commentaires: ['Commentaires', 'Notes', 'Observations']
 };
 
+// Options d'import par défaut
+export const defaultImportOptions: ImportOptions = {
+  fieldMapping: defaultFieldMapping,
+  skipMissingFields: true,
+  requireFiliale: true
+};
+
 // Interface pour les données brutes Excel avec index signature
 export interface ExcelRow {
   [key: string]: string | undefined;
@@ -72,7 +72,7 @@ export interface ImportResult {
   success: boolean;
   results: Array<{
     status: 'inserted' | 'updated';
-    numero: string;
+    immatriculation: string;
   }>;
   errors: Array<{
     row: number;
@@ -159,7 +159,7 @@ export async function importExcelFile(
   buffer: Buffer,
   fieldMapping: FieldMapping = defaultFieldMapping
 ): Promise<ImportResult> {
-  const db = await initDatabase();
+  const db = await getDb();
   const workbook = XLSX.read(buffer);
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<ExcelRow>(worksheet);
@@ -170,8 +170,8 @@ export async function importExcelFile(
   for (const [index, row] of rows.entries()) {
     try {
       // Extraction du numéro de camion (champ obligatoire)
-      const numero = findFieldValue(row, fieldMapping.numero);
-      if (!numero) {
+      const immatriculation = findFieldValue(row, fieldMapping.immatriculation);
+      if (!immatriculation) {
         throw new Error('Numéro de camion manquant');
       }
 
@@ -187,7 +187,7 @@ export async function importExcelFile(
 
       // Construction des données du camion
       const truckData = {
-        numero,
+        immatriculation,
         modele: findFieldValue(row, fieldMapping.modele),
         imei: findFieldValue(row, fieldMapping.imei) || null,
         numeroTruck4U: findFieldValue(row, fieldMapping.numeroTruck4U) || null,
@@ -201,7 +201,7 @@ export async function importExcelFile(
       };
 
       // Mise à jour ou insertion du camion
-      const existingTrucks = await db.select().from(trucks).where(eq(trucks.numero, numero)).limit(1);
+      const existingTrucks = await db.select().from(trucks).where(eq(trucks.immatriculation, immatriculation)).limit(1);
       const existingTruck = existingTrucks[0];
 
       if (existingTruck) {
@@ -211,15 +211,15 @@ export async function importExcelFile(
             ...truckData,
             dateModification: sql`CURRENT_TIMESTAMP` 
           } as any) // TODO: Fix type
-          .where(eq(trucks.numero, numero));
-        results.push({ status: 'updated', numero });
+          .where(eq(trucks.immatriculation, immatriculation));
+        results.push({ status: 'updated', immatriculation });
       } else {
         await db.insert(trucks).values({
           ...truckData,
           dateCreation: sql`CURRENT_TIMESTAMP`,
           dateModification: sql`CURRENT_TIMESTAMP`
         } as any); // TODO: Fix type
-        results.push({ status: 'inserted', numero });
+        results.push({ status: 'inserted', immatriculation });
       }
 
     } catch (error) {

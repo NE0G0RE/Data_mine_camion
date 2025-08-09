@@ -1,4 +1,4 @@
-export type Theme = 'charlesandre';
+export type Theme = 'charlesandre' | 'classique' | 'sombre';
 
 export const themes = {
   charlesandre: {
@@ -10,7 +10,34 @@ export const themes = {
       accent: '#059669', // Vert transport
       neutral: '#64748b', // Gris moderne
       background: '#f8fafc', // Fond clair
-      surface: '#ffffff' // Surface blanche
+      surface: '#ffffff', // Surface blanche
+      text: '#1f2937' // Texte principal
+    }
+  },
+  classique: {
+    name: 'Classique',
+    description: 'Thème clair standard avec des couleurs neutres',
+    colors: {
+      primary: '#2563eb', // Bleu vif
+      secondary: '#4f46e5', // Violet
+      accent: '#0ea5e9', // Bleu clair
+      neutral: '#6b7280', // Gris neutre
+      background: '#ffffff', // Blanc pur
+      surface: '#f9fafb', // Gris très clair
+      text: '#111827' // Noir profond
+    }
+  },
+  sombre: {
+    name: 'Sombre',
+    description: 'Thème sombre pour un confort visuel optimal',
+    colors: {
+      primary: '#3b82f6', // Bleu vif
+      secondary: '#8b5cf6', // Violet
+      accent: '#10b981', // Vert émeraude
+      neutral: '#6b7280', // Gris neutre
+      background: '#0f172a', // Bleu nuit très foncé
+      surface: '#1e293b', // Bleu nuit foncé
+      text: '#f8fafc' // Blanc cassé
     }
   }
 };

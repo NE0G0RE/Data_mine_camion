@@ -1,35 +1,59 @@
 import dotenv from 'dotenv';
-import { dirname, resolve } from 'path';
+import { drizzle } from 'drizzle-orm/mysql2';
+import mysql from 'mysql2/promise';
+import * as path from 'path';
 import { fileURLToPath } from 'url';
+import * as schema from '../shared/dist/schema.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, '../.env') });
+// Configure environment variables
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
-import { trucks, filiales, roles, utilisateurs, permissionsUtilisateur } from "../shared/schema";
+// Load .env file from project root
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+console.log('Environment file loaded from:', path.join(process.cwd(), '.env'));
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not defined");
+  console.error('Available environment variables:', Object.keys(process.env).join(', '));
+  throw new Error('DATABASE_URL is not defined in environment variables');
 }
 
-let db: ReturnType<typeof drizzle>;
+// Create the database connection
+let dbConnection: mysql.Connection | null = null;
 
-// Fonction pour initialiser la connexion à la base de données
-export async function initDatabase() {
-  if (!db) {
-    const connection = await mysql.createConnection(process.env.DATABASE_URL!);
-    db = drizzle(connection);
+export async function getConnection() {
+  if (!dbConnection) {
+    dbConnection = await mysql.createConnection(process.env.DATABASE_URL!);
   }
-  return db;
+  return dbConnection;
 }
 
-// Fonction pour obtenir l'instance de la base de données
+// Create the database instance with the schema
+export const db = drizzle(await getConnection(), { 
+  schema,
+  mode: 'default' 
+});
+
+// Export individual tables for convenience
+export const {
+  trucks,
+  filiales,
+  roles,
+  utilisateurs,
+  permissionsUtilisateur,
+} = schema;
+
+// Export types
+export type * from '../shared/schema.js';
+
+// Helper function to get the database instance
 export async function getDb() {
-  if (!db) {
-    return await initDatabase();
-  }
   return db;
 }
 
-export { trucks, filiales, roles, utilisateurs, permissionsUtilisateur }; 
+// Close the database connection when the application exits
+process.on('exit', async () => {
+  if (dbConnection) {
+    await dbConnection.end();
+  }
+});

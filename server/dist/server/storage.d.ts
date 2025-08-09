@@ -1,0 +1,67 @@
+import { type Truck, type InsertTruck, type Filiale, type InsertFiliale, type Role, type InsertRole, type Utilisateur, type InsertUtilisateur, type PermissionUtilisateur, type InsertPermission } from "../../shared/dist/index.js";
+export interface IStorage {
+    getRole(id: string): Promise<Role | undefined>;
+    getAllRoles(): Promise<Role[]>;
+    createRole(role: InsertRole): Promise<Role>;
+    updateRole(id: string, role: Partial<InsertRole>): Promise<Role | undefined>;
+    deleteRole(id: string): Promise<boolean>;
+    getUtilisateur(id: string): Promise<Utilisateur | undefined>;
+    getUtilisateurByEmail(email: string): Promise<Utilisateur | undefined>;
+    getAllUtilisateurs(): Promise<Utilisateur[]>;
+    createUtilisateur(utilisateur: InsertUtilisateur): Promise<Utilisateur>;
+    updateUtilisateur(id: string, utilisateur: Partial<InsertUtilisateur>): Promise<Utilisateur | undefined>;
+    deleteUtilisateur(id: string): Promise<boolean>;
+    getPermission(id: string): Promise<PermissionUtilisateur | undefined>;
+    getPermissionsByUtilisateur(utilisateurId: string): Promise<PermissionUtilisateur[]>;
+    createPermission(permission: InsertPermission): Promise<PermissionUtilisateur>;
+    updatePermission(id: string, permission: Partial<InsertPermission>): Promise<PermissionUtilisateur | undefined>;
+    deletePermission(id: string): Promise<boolean>;
+    getFiliale(id: string): Promise<Filiale | undefined>;
+    getAllFiliales(): Promise<Filiale[]>;
+    getFilialeByCode(code: string): Promise<Filiale | undefined>;
+    createFiliale(filiale: InsertFiliale): Promise<Filiale>;
+    updateFiliale(id: string, filiale: Partial<InsertFiliale>): Promise<Filiale | undefined>;
+    deleteFiliale(id: string): Promise<boolean>;
+    getTruck(id: string): Promise<Truck | undefined>;
+    getAllTrucks(filialeId?: string): Promise<Truck[]>;
+    getTruckByImmatriculation(immatriculation: string, filialeId?: string): Promise<Truck | undefined>;
+    createTruck(truck: InsertTruck): Promise<Truck>;
+    updateTruck(id: string, truck: Partial<InsertTruck>): Promise<Truck | undefined>;
+    deleteTruck(id: string): Promise<boolean>;
+    searchTrucks(query: string, filialeId?: string): Promise<Truck[]>;
+    filterTrucksByStatus(status: string, filialeId?: string): Promise<Truck[]>;
+}
+export declare class MySQLStorage implements IStorage {
+    getRole(id: string): Promise<Role | undefined>;
+    getAllRoles(): Promise<Role[]>;
+    createRole(insertRole: InsertRole): Promise<Role>;
+    updateRole(id: string, updateData: Partial<InsertRole>): Promise<Role | undefined>;
+    deleteRole(id: string): Promise<boolean>;
+    getUtilisateur(id: string): Promise<Utilisateur | undefined>;
+    getUtilisateurByEmail(email: string): Promise<Utilisateur | undefined>;
+    getAllUtilisateurs(): Promise<Utilisateur[]>;
+    createUtilisateur(insertUtilisateur: InsertUtilisateur): Promise<Utilisateur>;
+    updateUtilisateur(id: string, updateData: Partial<InsertUtilisateur>): Promise<Utilisateur | undefined>;
+    deleteUtilisateur(id: string): Promise<boolean>;
+    getPermission(id: string): Promise<PermissionUtilisateur | undefined>;
+    getPermissionsByUtilisateur(utilisateurId: string): Promise<PermissionUtilisateur[]>;
+    createPermission(insertPermission: InsertPermission): Promise<PermissionUtilisateur>;
+    updatePermission(id: string, updateData: Partial<InsertPermission>): Promise<PermissionUtilisateur | undefined>;
+    deletePermission(id: string): Promise<boolean>;
+    getFiliale(id: string): Promise<Filiale | undefined>;
+    getAllFiliales(): Promise<Filiale[]>;
+    getFilialeByCode(code: string): Promise<Filiale | undefined>;
+    createFiliale(insertFiliale: InsertFiliale): Promise<Filiale>;
+    updateFiliale(id: string, updateData: Partial<InsertFiliale>): Promise<Filiale | undefined>;
+    deleteFiliale(id: string): Promise<boolean>;
+    getTruck(id: string): Promise<Truck | undefined>;
+    getAllTrucks(filialeId?: string): Promise<Truck[]>;
+    getTruckByImmatriculation(immatriculation: string, filialeId?: string): Promise<Truck | undefined>;
+    createTruck(insertTruck: InsertTruck): Promise<Truck>;
+    updateTruck(id: string, updateData: Partial<InsertTruck>): Promise<Truck | undefined>;
+    deleteTruck(id: string): Promise<boolean>;
+    searchTrucks(query: string, filialeId?: string): Promise<Truck[]>;
+    filterTrucksByStatus(status: string, filialeId?: string): Promise<Truck[]>;
+}
+export declare const storage: MySQLStorage;
+//# sourceMappingURL=storage.d.ts.map

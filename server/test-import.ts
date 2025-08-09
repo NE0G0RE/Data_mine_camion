@@ -1,13 +1,13 @@
-import { readFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
-import { importExcelFile, type FieldMapping } from './services/excel-import.service';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { importExcelFile, type FieldMapping } from './services/excel-import.service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Configuration du mappage personnalisé
 const customMapping: FieldMapping = {
-  numero: ['Immatriculation', 'N° Camion', 'Numero', 'N°'],
+  immatriculation: ['Immatriculation', 'N° Immatriculation', 'Immat', 'Camion', 'N° Camion'],
   modele: ['Modèle', 'Modele', 'Type'],
   filiale: ['Filiale', 'Site'],
   imei: ['IMEI', 'N° IMEI'],
@@ -41,7 +41,7 @@ async function testImport() {
     if (result.results.length > 0) {
       console.log('\nCamions traités:');
       for (const truck of result.results) {
-        console.log(`${truck.numero} - ${truck.status}`);
+        console.log(`${truck.immatriculation} - ${truck.status}`);
       }
     }
 

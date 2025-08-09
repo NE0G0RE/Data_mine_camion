@@ -26,5 +26,15 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        // Ne pas supprimer le préfixe /api pour que les routes soient correctement résolues
+        rewrite: (path) => path
+      },
+    },
   },
 });

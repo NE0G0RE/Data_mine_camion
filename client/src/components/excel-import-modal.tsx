@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -16,7 +16,7 @@ interface ExcelRow {
 
 interface FieldMapping {
   numero: string;
-  modele: string;
+  modele: string;  // Champ obligatoire
   filiale: string;
   imei: string;
   numeroTruck4U: string;
@@ -192,16 +192,131 @@ export default function ExcelImportModal({ isOpen, onClose, onImportComplete }: 
     }
   }, [toast]);
 
-  const handleImport = useCallback(async () => {
-    if (!file) return;
+  // Fonction pour valider les valeurs énumérées
+  const validateEnums = (field: string, value: string): string | null => {
+    if (!value) return null;
+    
+    const enumValidations: Record<string, string[]> = {
+      daValide: ["oui", "non", "na"],
+      validationReception: ["oui", "non", "na"],
+      parametrageRealise: ["oui", "non", "partiel"],
+      statutConduite: ["fonctionnel", "non_fonctionnel", "test_requis"],
+      presenceTablette: ["oui", "non"],
+      fonctionnelle: ["oui", "non", "partiel"],
+      compatibilite: ["compatible", "incompatible", "test_requis"],
+      deliverup: ["installe", "non_installe", "erreur"],
+      cameraCabineTelematics: ["oui", "non", "pas_besoin"],
+      dashcam: ["oui", "non", "pas_besoin"],
+      materielRequis: ["complet", "partiel", "manquant"],
+      testsOK: ["oui", "non", "en_cours"]
+    };
 
-    // Validate required fields
-    if (!fieldMapping.numero || !fieldMapping.filiale) {
+    const validValues = enumValidations[field];
+    if (validValues && !validValues.includes(value.toLowerCase())) {
+      return `Valeur invalide pour ${field}. Valeurs acceptées : ${validValues.join(', ')}`;
+    }
+    return null;
+  };
+
+  // Fonction pour valider le format de date
+  const isValidDate = (dateStr: string): boolean => {
+    if (!dateStr) return true; // Les dates sont optionnelles
+    const date = new Date(dateStr);
+    return !isNaN(date.getTime());
+  };
+
+  const validateImportData = (): string[] => {
+    const errors: string[] = [];
+
+    // 1. Vérifier les champs obligatoires
+    const requiredFields = {
+      numero: "Numéro de camion",
+      filiale: "Filiale",
+      modele: "Modèle"
+    };
+
+    Object.entries(requiredFields).forEach(([field, label]) => {
+      if (!fieldMapping[field]) {
+        errors.push(`Le champ "${label}" est obligatoire mais n'est pas mappé.`);
+      }
+    });
+
+    // 2. Valider les formats de date
+    const dateFields = [
+      'dateDA', 'dateCA', 'dateReception', 'dateInstallation'
+    ];
+    
+    excelData.slice(0, 10).forEach((row: ExcelRow, index: number) => {
+      dateFields.forEach(dateField => {
+        if (fieldMapping[dateField]) {
+          const dateValue = row[fieldMapping[dateField]];
+          if (dateValue && !isValidDate(dateValue)) {
+            errors.push(`Ligne ${index + 2}: Format de date invalide pour "${dateField}" (${dateValue})`);
+          }
+        }
+      });
+
+      // 3. Valider les valeurs énumérées
+      const enumFields = [
+        'daValide', 'validationReception', 'parametrageRealise',
+        'statutConduite', 'presenceTablette', 'fonctionnelle',
+        'compatibilite', 'deliverup', 'cameraCabineTelematics',
+        'dashcam', 'materielRequis', 'testsOK'
+      ];
+
+      enumFields.forEach(enumField => {
+        if (fieldMapping[enumField]) {
+          const value = row[fieldMapping[enumField]];
+          if (value) {
+            const error = validateEnums(enumField, value);
+            if (error) {
+              errors.push(`Ligne ${index + 2}: ${error}`);
+            }
+          }
+        }
+      });
+    });
+
+    return errors as string[];
+  };
+
+  const handleImport = useCallback(async () => {
+    if (!file) {
       toast({
         title: "Erreur",
-        description: "Les champs 'Numéro de camion' et 'Filiale' sont obligatoires.",
+        description: "Aucun fichier sélectionné.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Valider les données avant l'importation
+    const validationErrors = validateImportData();
+    
+    if (validationErrors.length > 0) {
+      // Afficher les 5 premières erreurs pour ne pas submerger l'utilisateur
+      const errorCount = validationErrors.length;
+      const maxErrorsToShow = 5;
+      const errorsToShow = validationErrors.slice(0, maxErrorsToShow);
+      
+      toast({
+        title: `Erreurs de validation (${errorCount} au total)`,
+        description: (
+          <div className="space-y-2">
+            {errorsToShow.map((error, i) => (
+              <div key={i} className="text-sm">• {error}</div>
+            ))}
+            {errorCount > maxErrorsToShow && (
+              <div className="text-sm font-medium">
+                ...et {errorCount - maxErrorsToShow} erreurs supplémentaires
+              </div>
+            )}
+          </div>
+        ),
+        variant: "destructive",
+        duration: 10000, // 10 secondes
+      });
+      
       return;
     }
 

@@ -47,18 +47,15 @@
 - Code unique pour identification
 
 ### 🚛 Gestion des Camions
-- **Informations de base** : Numéro, modèle, filiale
-- **État des documents** : DA, CA, réception
-- **Installation Truck4U** : Paramétrage, localisation, statut
-- **Équipements tablettes** : Présence, type, IMEI, fonctionnalité
-- **Matériel** : PDA, caméras, dashcam
-- **Tests et validation** : Tests OK, matériel requis
+- **Informations de base** : Numéro, modèle, filiale&
 
 ### 📈 Import/Export
-- Import en masse depuis fichiers Excel
-- Mapping automatique des colonnes
-- Validation des données
-- Gestion des erreurs
+- Import en masse depuis fichiers Excel avec mapping personnalisable
+- Assistant d'import en plusieurs étapes avec prévisualisation
+- Validation des champs obligatoires (numéro, filiale, modèle)
+- Gestion avancée des erreurs avec rapports détaillés
+- Support des formats de date et des valeurs énumérées
+- Export des données au format Excel avec mise en forme
 
 ### 🔍 Recherche et Filtres
 - Recherche par numéro, modèle, IMEI
@@ -126,6 +123,12 @@ npm start
 - Accéder à `http://localhost:3000`
 - Se connecter avec l'utilisateur administrateur créé
 
+### 2. Gestion du profil utilisateur
+- Mise à jour des informations personnelles
+- Téléchargement de photo de profil
+- Sélection du tableau de bord préféré (minimal, standard, transport)
+- Gestion des préférences d'affichage
+
 ### 2. Configuration initiale
 1. **Créer les filiales** via l'interface admin
 2. **Créer les rôles** par défaut (automatique)
@@ -136,7 +139,17 @@ npm start
 2. Aller dans la section "Import"
 3. Sélectionner la filiale
 4. Uploader le fichier
-5. Vérifier les données importées
+5. Mapper les colonnes du fichier aux champs de l'application
+6. Vérifier l'aperçu des données
+7. Confirmer l'importation
+8. Consulter le rapport d'importation
+
+### 4. Gestion des photos de profil
+1. Accéder au profil utilisateur
+2. Cliquer sur "Modifier la photo"
+3. Sélectionner une image (JPG, PNG, GIF, max 5MB)
+4. Recadrer l'image si nécessaire
+5. Enregistrer les modifications
 
 ## 📁 Structure du Projet
 

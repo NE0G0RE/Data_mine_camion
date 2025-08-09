@@ -1,12 +1,24 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
+import type { ViteDevServer, Logger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+let vite: ViteDevServer | null = null;
+let viteLogger: Logger | Console = console;
+
+if (process.env.NODE_ENV === 'development') {
+  import('vite').then(viteModule => {
+    const { createServer, createLogger } = viteModule;
+    viteLogger = createLogger();
+    
+    // The Vite server will be created in setupVite
+  }).catch(err => {
+    console.error('Failed to load Vite in development mode:', err);
+  });
+}
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -20,46 +32,56 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      const { createServer } = await import('vite');
+      const devServer = await createServer({
+        root: path.join(process.cwd(), 'client'),
+        server: {
+          middlewareMode: true,
+          hmr: { server },
+        },
+        appType: 'custom'
+      });
 
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
+      app.use(devServer.middlewares);
+      vite = devServer;
+    } catch (err) {
+      console.error('Failed to start Vite dev server:', err);
+      process.exit(1);
+    }
+  }
 
-  app.use(vite.middlewares);
+  // In production, we'll serve static files directly
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
+        process.cwd(),
+        'dist/client',
+        'index.html'
       );
 
-      // always reload the index.html file from disk incase it changes
+      // Read the built index.html
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      
+      // In development, let Vite handle the transform
+      if (process.env.NODE_ENV !== 'development') {
+        template = template.replace(
+          `src="/src/main.tsx"`,
+          `src="/src/main.tsx?v=${nanoid()}"`
+        );
+      }
+      
+      if (vite) {
+        // In development, use Vite's transform
+        const page = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      } else {
+        // In production, serve the template as is
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      }
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
